@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/RedHatInsights/widget-layout-backend/pkg/config"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/sirupsen/logrus"
 )
@@ -77,7 +78,8 @@ func (l *LogEntry) Panic(v interface{}, stack []byte) {
 }
 
 func NewLogger(logger *logrus.Logger) *StructuredLogger {
-	logLevel, err := logrus.ParseLevel("debug")
+	config := config.GetConfig()
+	logLevel, err := logrus.ParseLevel(config.LogLevel)
 	if err != nil {
 		logLevel = logrus.ErrorLevel
 	}
