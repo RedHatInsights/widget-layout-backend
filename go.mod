@@ -1,8 +1,6 @@
 module github.com/RedHatInsights/widget-layout-backend
 
-go 1.24.4
-
-tool github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen
+go 1.23
 
 require (
 	github.com/getkin/kin-openapi v0.132.0
