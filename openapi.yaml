@@ -1,0 +1,35 @@
+openapi: "3.0.0"
+info:
+  version: 1.0.0
+  title: Widget layout api
+paths:
+  /:
+    get: 
+      summary: Get the widget layout
+      operationId: getWidgetLayout
+      responses:
+        '200':
+          description: A list of widgets
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WidgetList'
+components:
+  schemas:
+    Widget:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "widget1"
+        name: 
+          type: string
+          example: "Widget One"
+        position:
+          type: integer
+          example: 1
+    WidgetList:
+      type: array
+      items:
+        $ref: '#/components/schemas/Widget'
+                

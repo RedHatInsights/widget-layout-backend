@@ -1,0 +1,4 @@
+bin
+api/generated.go
+coverage.out
+coverage.html
