@@ -24,6 +24,12 @@ objects:
                 - /api/widget-layout/v1/openapi.yaml
           podSpec:
             image: ${IMAGE}:${IMAGE_TAG}
+            initContainers:
+              - name: run-db-migration
+                command:
+                  - bash
+                  - -c
+                  - widget-layout-backend-migrate
             livenessProbe:
               failureThreshold: 3
               httpGet:
