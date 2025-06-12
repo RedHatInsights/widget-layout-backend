@@ -6,3 +6,7 @@ coverage.html
 .env
 
 openapi.json
+
+
+# testing databases
+*-dashboard-template.db

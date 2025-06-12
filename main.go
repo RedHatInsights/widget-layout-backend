@@ -13,7 +13,9 @@ import (
 
 	"github.com/RedHatInsights/widget-layout-backend/api"
 	"github.com/RedHatInsights/widget-layout-backend/pkg/config"
+	"github.com/RedHatInsights/widget-layout-backend/pkg/database"
 	"github.com/RedHatInsights/widget-layout-backend/pkg/logger"
+	"github.com/RedHatInsights/widget-layout-backend/pkg/server"
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/getkin/kin-openapi/openapi3filter"
 	chi "github.com/go-chi/chi/v5"
@@ -53,6 +55,7 @@ func loadSpec() (*openapi3.T, error) {
 
 func init() {
 	godotenv.Load()
+	database.InitDb()
 	fmt.Println("Loading environment variables from .env file")
 }
 
@@ -71,7 +74,7 @@ func main() {
 	r := chi.NewRouter()
 	r.Use(
 		chiMiddleware.RequestLogger(logger.NewLogger(logrus.New())))
-	server := api.NewServer(r)
+	server := server.NewServer(r)
 
 	r.Get("/healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)

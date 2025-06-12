@@ -3,33 +3,274 @@ info:
   version: 1.0.0
   title: Widget layout api
 paths:
-  /templates:
+  /:
     get: 
-      summary: Get the widget layout
+      summary: Get the dashboard templates
       operationId: getWidgetLayout
       responses:
         '200':
-          description: A list of widgets
+          description: A list of dashboard templates
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/WidgetList'
+                $ref: '#/components/schemas/DashboardTemplateList'
 components:
   schemas:
-    Widget:
+    WidgetItem:
+      type: object
+      required:
+      - width
+      - height
+      - x
+      - "y"
+      - widgetType
+      - static
+      - title
+      - maxHeight
+      - minHeight
+      properties:
+        width:
+          type: integer
+          description: The width of the widget in the grid
+          minimum: 1
+          maximum: 4
+          x-oapi-codegen-extra-tags:
+            yaml: "w"
+            json: "w"
+        height:
+          type: integer
+          description: The height of the widget in the grid
+          minimum: 1
+          x-oapi-codegen-extra-tags:
+            yaml: "h"
+            json: "h"
+        maxHeight:
+          type: integer
+          description: The maximum height of the widget in the grid
+          minimum: 1
+          x-oapi-codegen-extra-tags:
+            yaml: "maxH"
+            json: "maxH"
+        minHeight:
+          type: integer
+          description: The minimum height of the widget in the grid
+          minimum: 1
+          x-oapi-codegen-extra-tags:
+            yaml: "minH"
+            json: "minH"
+        x:
+          type: integer
+          description: The x position of the widget in the grid
+          minimum: 0
+          maximum: 3
+          x-oapi-codegen-extra-tags:
+            yaml: "x"
+        y:
+          type: integer
+          description: The y position of the widget in the grid
+          minimum: 0
+          x-oapi-codegen-extra-tags:
+            yaml: "y"
+        widgetType:
+          type: string
+          description: The unique identifier of the widget
+          x-oapi-codegen-extra-tags:
+            yaml: "i"
+            json: "i"
+        static:
+          type: boolean
+          description: Whether the widget is locked in the grid
+          x-oapi-codegen-extra-tags:
+            yaml: "static"
+        title:
+          type: string
+          description: The title of the widget
+          x-oapi-codegen-extra-tags:
+            yaml: "title"
+    DashboardTemplateConfig:
+      type: object
+      required:
+      - sm
+      - md
+      - lg
+      - xl
+      properties:
+        sm:
+          type: array
+          x-oapi-codegen-extra-tags:
+            yaml: "sm"
+            gorm: not null;default null
+          x-go-type: datatypes.JSONType[[]WidgetItem]
+          x-go-type-import:
+            path: gorm.io/datatypes
+          items:
+            "$ref": "#/components/schemas/WidgetItem"
+            required:
+            - w
+            - h
+            - x
+            - "y"
+            - i
+            allOf:
+            - properties:
+                x:
+                  minimum: 0
+                  exclusiveMaximum: 1
+                w:
+                  minimum: 0
+                  maximum: 1
+        md:
+          type: array
+          x-oapi-codegen-extra-tags:
+            yaml: "md"
+            gorm: not null;default null
+          x-go-type: datatypes.JSONType[[]WidgetItem]
+          x-go-type-import:
+            path: gorm.io/datatypes
+          items:
+            "$ref": "#/components/schemas/WidgetItem"
+            required:
+            - w
+            - h
+            - x
+            - "y"
+            - i
+            allOf:
+            - properties:
+                x:
+                  minimum: 0
+                  exclusiveMaximum: 2
+                w:
+                  minimum: 0
+                  maximum: 2
+        lg:
+          type: array
+          x-oapi-codegen-extra-tags:
+            yaml: "lg"
+            gorm: not null;default null
+          x-go-type: datatypes.JSONType[[]WidgetItem]
+          x-go-type-import:
+            path: gorm.io/datatypes
+          items:
+            "$ref": "#/components/schemas/WidgetItem"
+            required:
+            - w
+            - h
+            - x
+            - "y"
+            - i
+            allOf:
+            - properties:
+                x:
+                  minimum: 0
+                  exclusiveMaximum: 3
+                w:
+                  minimum: 0
+                  maximum: 3
+        xl:
+          type: array
+          x-oapi-codegen-extra-tags:
+            yaml: "xl"
+            gorm: not null;default null
+          x-go-type: datatypes.JSONType[[]WidgetItem]
+          x-go-type-import:
+            path: gorm.io/datatypes
+          items:
+            "$ref": "#/components/schemas/WidgetItem"
+            required:
+            - w
+            - h
+            - x
+            - "y"
+            - i   
+    DashboardTemplateBase:
       type: object
       properties:
-        id:
+        name:
           type: string
-          example: "widget1"
-        name: 
+          description: The name of the dashboard template
+          x-oapi-codegen-extra-tags:
+            yaml: "name"
+        displayName:
           type: string
-          example: "Widget One"
-        position:
+          description: The display name of the dashboard template
+          x-oapi-codegen-extra-tags:
+            yaml: "displayName"
+      required:
+        - name
+        - displayName
+    DashboardTemplate:
+      description: A list of dashboard templates
+      type: object
+      properties:
+        userId:
           type: integer
-          example: 1
-    WidgetList:
+          description: The unique identifier of the user that owns the template
+          x-oapi-codegen-extra-tags:
+            yaml: "userId"
+          x-go-type: uint
+        ID:
+          type: integer
+          description: The unique identifier of the template
+          x-oapi-codegen-extra-tags:
+            yaml: "id"
+            json: "id"
+            gorm: primarykey
+          x-go-type: uint
+        createdAt:
+          type: string
+          format: date-time
+          description: The creation time of the template
+          x-oapi-codegen-extra-tags:
+            yaml: "createdAt"
+            json: "createdAt"
+          x-go-type: time.Time
+        updatedAt:
+          type: string
+          format: date-time
+          description: The last update time of the template
+          x-oapi-codegen-extra-tags:
+            yaml: "updatedAt"
+            json: "updatedAt"
+          x-go-type: time.Time
+        deletedAt:
+          type: string
+          format: date-time
+          description: The deletion time of the template, if it has been deleted
+          x-oapi-codegen-extra-tags:
+            yaml: "deletedAt,omitempty"
+            json: "deletedAt,omitempty"
+          x-go-type: gorm.DeletedAt
+          x-go-type-skip-optional-pointer: true
+        templateConfig:
+          allOf:
+            - $ref: '#/components/schemas/DashboardTemplateConfig'
+          x-oapi-codegen-extra-tags:
+            yaml: "templateConfig"
+            gorm: not null;default null;embedded
+          description: The configuration of the dashboard template
+        templateBase:
+          allOf:
+            - $ref: '#/components/schemas/DashboardTemplateBase'
+          x-oapi-codegen-extra-tags:
+            yaml: "templateBase"
+            gorm: not null;default null;embedded
+          description: The base information of the dashboard template
+        default:
+          type: boolean
+          description: Whether the template is the default template
+          x-oapi-codegen-extra-tags:
+            yaml: "default,omitempty"
+          x-go-type-skip-optional-pointer: true
+      required:
+        - ID
+        - createdAt
+        - updatedAt
+        - templateConfig
+        - templateBase
+        - userId
+    DashboardTemplateList:
       type: array
       items:
-        $ref: '#/components/schemas/Widget'
-                
+        $ref: '#/components/schemas/DashboardTemplate'
+
