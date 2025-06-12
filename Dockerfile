@@ -4,7 +4,7 @@ COPY pkg pkg
 COPY go.mod go.mod
 COPY go.sum go.sum
 COPY main.go main.go
-COPY openapi.yaml openapi.yaml
+COPY spec/openapi.yaml spec/openapi.yaml
 COPY server.cfg.yaml server.cfg.yaml
 COPY tools.go tools.go
 COPY Makefile Makefile
@@ -20,9 +20,13 @@ FROM registry.access.redhat.com/ubi9-minimal:latest
 RUN mkdir -p /app
 RUN chgrp -R 0 /app && \
     chmod -R g=u /app
+
+RUN mkdir -p /app/spec
+RUN chgrp -R 0 /app/spec && \
+    chmod -R g=u /app/spec
 COPY --from=builder /go/bin/widget-layout-backend /app/widget-layout-backend
 # Spec is used for request payload validation
-COPY openapi.yaml /app/openapi.yaml
+COPY spec/openapi.yaml /app/spec/openapi.yaml
 
 WORKDIR /app
 ENTRYPOINT ["./widget-layout-backend"]

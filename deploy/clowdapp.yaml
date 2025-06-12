@@ -1,0 +1,77 @@
+---
+apiVersion: v1
+kind: Template
+metadata:
+  name: widget-layout-backend
+objects:
+  - apiVersion: cloud.redhat.com/v1alpha1
+    kind: ClowdApp
+    metadata: 
+      name: widget-layout-backend
+    spec:
+      envName: ${ENV_NAME}
+      database:
+        name: widget-layout-backend
+      deployments:
+        - name: api
+          minReplicas: ${{MIN_REPLICAS}}
+          webServices:
+            public:
+              apiPath: widget-layout
+              enabled: true
+              whitelistPaths:
+                - /api/widget-layout/v1/openapi.json
+                - /api/widget-layout/v1/openapi.yaml
+          podSpec:
+            image: ${IMAGE}:${IMAGE_TAG}
+            livenessProbe:
+              failureThreshold: 3
+              httpGet:
+                path: /healthz
+                port: 8000
+                scheme: HTTP
+              initialDelaySeconds: 30
+              periodSeconds: 5
+              successThreshold: 1
+              timeoutSeconds: 120          
+            readinessProbe:
+              failureThreshold: 3
+              httpGet:
+                path: /healthz
+                port: 8000
+                scheme: HTTP
+              initialDelaySeconds: 30
+              periodSeconds: 5
+              successThreshold: 1
+              timeoutSeconds: 120
+            env:
+            - name: CLOWDER_ENABLED
+              value: ${CLOWDER_ENABLED}
+            - name: LOG_LEVEL 
+              value: ${LOG_LEVEL}
+            resources:
+              limits:
+                cpu: ${CPU_LIMIT_WIDGET_LAYOUT}
+                memory: ${MEMORY_LIMIT_WIDGET_LAYOUT}
+              requests:
+                cpu: ${CPU_REQUEST_WIDGET_LAYOUT}
+                memory: ${MEMORY_REQUEST_WIDGET_LAYOUT}
+
+parameters:
+- description: The log level for the application
+  name: LOG_LEVEL
+  value: warn
+- description: Cpu limit of service
+  name: CPU_LIMIT_WIDGET_LAYOUT
+  value: 500m
+- description: memory limit of service
+  name: MEMORY_LIMIT_WIDGET_LAYOUT
+  value: 512Mi
+- description: Cpu requests of service
+  name: CPU_REQUEST_WIDGET_LAYOUT
+  value: 250m
+- description: Memory requests of service
+  name: MEMORY_REQUEST_WIDGET_LAYOUT
+  value: 256Mi
+- name: MIN_REPLICAS
+  value: '3'
