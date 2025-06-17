@@ -1,6 +1,7 @@
 FROM registry.access.redhat.com/ubi9/go-toolset:9.6-1749636489 AS builder
 COPY api api
 COPY pkg pkg
+COPY cmd cmd
 COPY go.mod go.mod
 COPY go.sum go.sum
 COPY main.go main.go
@@ -12,6 +13,7 @@ USER root
 RUN go get -d -v
 RUN make generate
 RUN CGO_ENABLED=1 go build -o /go/bin/widget-layout-backend 
+RUN CGO_ENABLED=1 go build -o /go/bin/widget-layout-backend-migrate cmd/database/migrate.go
 
 FROM registry.access.redhat.com/ubi9-minimal:latest
 
@@ -25,6 +27,7 @@ RUN mkdir -p /app/spec
 RUN chgrp -R 0 /app/spec && \
     chmod -R g=u /app/spec
 COPY --from=builder /go/bin/widget-layout-backend /app/widget-layout-backend
+COPY --from=builder /go/bin/widget-layout-backend-migrate /usr/bin
 # Spec is used for request payload validation
 COPY spec/openapi.yaml /app/spec/openapi.yaml
 

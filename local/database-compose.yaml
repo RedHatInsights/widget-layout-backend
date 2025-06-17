@@ -1,0 +1,17 @@
+---
+services:
+  widget-layout-db:
+    image: quay.io/sclorg/postgresql-16-c9s:latest
+    restart: always
+    environment:
+    - POSTGRESQL_USER=${PGSQL_USER}
+    - POSTGRESQL_PASSWORD=${PGSQL_PASSWORD}
+    - POSTGRESQL_DATABASE=${PGSQL_DATABASE}
+    ports:
+    - "${PGSQL_PORT}:5432"
+    volumes:
+    - widget-layout:/var/lib/postgresql/data
+
+volumes:
+  widget-layout:
+    driver: local
