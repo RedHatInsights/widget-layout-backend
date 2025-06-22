@@ -1,6 +1,8 @@
 module github.com/RedHatInsights/widget-layout-backend
 
-go 1.23
+go 1.23.0
+
+toolchain go1.23.9
 
 require (
 	github.com/getkin/kin-openapi v0.132.0
@@ -46,7 +48,7 @@ require (
 	golang.org/x/crypto v0.31.0 // indirect
 	golang.org/x/mod v0.17.0 // indirect
 	golang.org/x/sync v0.10.0 // indirect
-	golang.org/x/sys v0.30.0 // indirect
+	golang.org/x/sys v0.33.0 // indirect
 	golang.org/x/text v0.21.0 // indirect
 	golang.org/x/tools v0.21.1-0.20240508182429-e35e4ccd0d2d // indirect
 	google.golang.org/protobuf v1.36.5 // indirect
