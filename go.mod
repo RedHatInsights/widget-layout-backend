@@ -41,7 +41,8 @@ require (
 	github.com/prometheus/client_model v0.6.1 // indirect
 	github.com/prometheus/common v0.62.0 // indirect
 	github.com/prometheus/procfs v0.15.1 // indirect
-	github.com/speakeasy-api/openapi-overlay v0.9.0 // indirect
+	github.com/speakeasy-api/jsonpath v0.6.0 // indirect
+	github.com/speakeasy-api/openapi-overlay v0.10.2 // indirect
 	github.com/vmware-labs/yaml-jsonpath v0.3.2 // indirect
 	golang.org/x/crypto v0.31.0 // indirect
 	golang.org/x/mod v0.17.0 // indirect
