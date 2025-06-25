@@ -11,7 +11,7 @@ require (
 	github.com/oasdiff/yaml v0.0.0-20250309154309-f31be36b4037
 	github.com/prometheus/client_golang v1.22.0
 	github.com/redhatinsights/app-common-go v1.6.8
-	github.com/sirupsen/logrus v1.8.1
+	github.com/sirupsen/logrus v1.9.3
 	github.com/stretchr/testify v1.10.0
 	gorm.io/driver/postgres v1.6.0
 	gorm.io/gorm v1.30.0
