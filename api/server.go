@@ -9,10 +9,9 @@ import (
 
 // optional code omitted
 
-type Server struct {
-}
+type Server struct{}
 
-func NewServer(r *chi.Mux, middlewares ...func(next http.Handler) http.Handler) *Server {
+func NewServer(r chi.Router, middlewares ...func(next http.Handler) http.Handler) *Server {
 	for _, mw := range middlewares {
 		r.Use(mw)
 	}
