@@ -48,6 +48,12 @@ func (c *WidgetLayoutConfig) getCert(cfg *clowder.AppConfig) string {
 	return cert
 }
 
+type IdentityContextKeyType string
+
+const (
+	IdentityContextKey IdentityContextKeyType = "identity"
+)
+
 func init() {
 	godotenv.Load()
 	config = &WidgetLayoutConfig{}

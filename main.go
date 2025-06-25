@@ -15,6 +15,7 @@ import (
 	"github.com/RedHatInsights/widget-layout-backend/pkg/config"
 	"github.com/RedHatInsights/widget-layout-backend/pkg/database"
 	"github.com/RedHatInsights/widget-layout-backend/pkg/logger"
+	"github.com/RedHatInsights/widget-layout-backend/pkg/middlewares"
 	"github.com/RedHatInsights/widget-layout-backend/pkg/server"
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/getkin/kin-openapi/openapi3filter"
@@ -87,9 +88,11 @@ func main() {
 	apiPrefix := "/api/widget-layout/v1"
 
 	api.HandlerWithOptions(server, api.ChiServerOptions{
-		BaseURL:     apiPrefix,
-		BaseRouter:  r,
-		Middlewares: []api.MiddlewareFunc{},
+		BaseURL:    apiPrefix,
+		BaseRouter: r,
+		Middlewares: []api.MiddlewareFunc{
+			middlewares.InjectUserIdentity,
+		},
 	})
 
 	r.Route(apiPrefix+"/", func(r chi.Router) {
