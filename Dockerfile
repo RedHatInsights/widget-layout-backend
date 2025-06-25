@@ -10,8 +10,8 @@ COPY server.cfg.yaml server.cfg.yaml
 COPY tools.go tools.go
 COPY Makefile Makefile
 USER root
-RUN go get -d -v
 RUN make generate
+RUN go get -d -v
 RUN CGO_ENABLED=1 go build -o /go/bin/widget-layout-backend 
 RUN CGO_ENABLED=1 go build -o /go/bin/widget-layout-backend-migrate cmd/database/migrate.go
 

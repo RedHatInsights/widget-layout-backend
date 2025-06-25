@@ -25,6 +25,7 @@ type WidgetLayoutConfig struct {
 	WebPort        int
 	MetricsPort    int
 	DatabaseConfig DatabaseConfig
+	TestMode       bool
 }
 
 var config *WidgetLayoutConfig
