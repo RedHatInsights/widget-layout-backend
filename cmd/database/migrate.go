@@ -11,7 +11,7 @@ import (
 
 func main() {
 	godotenv.Load()
-
+	database.InitDb()
 	// migrate models
 	tx := database.DB.Begin().Session(&gorm.Session{
 		Logger: logger.Default.LogMode(logger.Info),

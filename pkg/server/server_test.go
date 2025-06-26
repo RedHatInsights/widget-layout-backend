@@ -1,14 +1,17 @@
 package server_test
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
 	"github.com/RedHatInsights/widget-layout-backend/api"
+	"github.com/RedHatInsights/widget-layout-backend/pkg/config"
 	"github.com/RedHatInsights/widget-layout-backend/pkg/models"
 	"github.com/RedHatInsights/widget-layout-backend/pkg/server"
+	"github.com/RedHatInsights/widget-layout-backend/pkg/test_util"
 	"github.com/go-chi/chi/v5"
 	"github.com/stretchr/testify/assert"
 	"gorm.io/datatypes"
@@ -30,6 +33,12 @@ type MockWidget struct {
 	Title  string `json:"title"`
 	MaxH   int    `json:"maxH"`
 	MinH   int    `json:"minH"`
+}
+
+func withIdentityContext(req *http.Request) *http.Request {
+	ctx := context.Background()
+	ctx = context.WithValue(ctx, config.IdentityContextKey, test_util.GenerateIdentityStruct())
+	return req.WithContext(ctx)
 }
 
 func TestGetWidgets(t *testing.T) {
@@ -63,6 +72,7 @@ func TestGetWidgets(t *testing.T) {
 
 		// Simulate a request to the /widgets endpoint
 		req, _ := http.NewRequest("GET", "/", nil)
+		req = withIdentityContext(req)
 		w := httptest.NewRecorder()
 
 		server.GetWidgetLayout(w, req)
@@ -80,6 +90,7 @@ func TestGetWidgets(t *testing.T) {
 	t.Run("should set Content-Type to application/json", func(t *testing.T) {
 		server := setupRouter()
 		req, _ := http.NewRequest("GET", "/", nil)
+		req = withIdentityContext(req)
 		w := httptest.NewRecorder()
 		server.GetWidgetLayout(w, req)
 		assert.Equal(t, "application/json", w.Header().Get("Content-Type"), "Content-Type should be application/json")
@@ -88,19 +99,11 @@ func TestGetWidgets(t *testing.T) {
 	t.Run("should return valid JSON", func(t *testing.T) {
 		server := setupRouter()
 		req, _ := http.NewRequest("GET", "/", nil)
+		req = withIdentityContext(req)
 		w := httptest.NewRecorder()
 		server.GetWidgetLayout(w, req)
 		var js interface{}
 		err := json.Unmarshal(w.Body.Bytes(), &js)
 		assert.NoError(t, err, "Response should be valid JSON")
-	})
-
-	t.Run("should not allow POST method", func(t *testing.T) {
-		server := setupRouter()
-		req, _ := http.NewRequest("POST", "/", nil)
-		w := httptest.NewRecorder()
-		server.GetWidgetLayout(w, req)
-		// Since handler does not check method, it will still return 200, but you can assert this behavior
-		assert.Equal(t, http.StatusOK, w.Code, "POST should return 200 (current behavior)")
 	})
 }

@@ -5,7 +5,9 @@ import (
 	"net/http"
 
 	"github.com/RedHatInsights/widget-layout-backend/api"
+	"github.com/RedHatInsights/widget-layout-backend/pkg/middlewares"
 	"github.com/go-chi/chi/v5"
+	"github.com/sirupsen/logrus"
 	"gorm.io/datatypes"
 )
 
@@ -23,6 +25,8 @@ func NewServer(r chi.Router, middlewares ...func(next http.Handler) http.Handler
 
 // (GET /)
 func (Server) GetWidgetLayout(w http.ResponseWriter, r *http.Request) {
+	id := middlewares.GetUserIdentity(r.Context())
+	logrus.Debugln("GetWidgetLayout called with identity:", id.Identity.User.UserID)
 	w.Header().Set("Content-Type", "application/json")
 	i := "widget1"
 	h := 2

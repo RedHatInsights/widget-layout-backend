@@ -2,13 +2,14 @@
 
 help:
 	@echo "Available commands:"
-	@echo "  build        Build the widget-layout-backend binary"
-	@echo "  dev          Run the application in development mode"
-	@echo "  generate     Run go generate on all packages"
-	@echo "  test         Run all unit tests with coverage"
-	@echo "  infra        Start local infrastructure with Docker Compose"
-	@echo "  migrate-db   Run the database migration script"
-	@echo "  help         Show this help message"
+	@echo "  build             Build the widget-layout-backend binary"
+	@echo "  dev               Run the application in development mode"
+	@echo "  generate          Run go generate on all packages"
+	@echo "  generate-identity Generate a user identity for development"
+	@echo "  test              Run all unit tests with coverage"
+	@echo "  infra             Start local infrastructure with Docker Compose"
+	@echo "  migrate-db        Run the database migration script"
+	@echo "  help              Show this help message"
 
 build:
 	go build -o bin/widget-layout-backend .
@@ -28,3 +29,6 @@ infra:
 
 migrate-db:
 	go run cmd/database/migrate.go
+
+generate-identity:
+	go run cmd/dev/user-identity.go

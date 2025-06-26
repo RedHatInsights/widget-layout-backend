@@ -204,11 +204,10 @@ components:
       type: object
       properties:
         userId:
-          type: integer
+          type: string
           description: The unique identifier of the user that owns the template
           x-oapi-codegen-extra-tags:
             yaml: "userId"
-          x-go-type: uint
         ID:
           type: integer
           description: The unique identifier of the template
