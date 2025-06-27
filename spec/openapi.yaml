@@ -14,6 +14,235 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/DashboardTemplateList'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /{dashboardTemplateId}:
+    get:
+      summary: Get a specific dashboard template
+      operationId: getWidgetLayoutById
+      parameters:
+        - name: dashboardTemplateId
+          in: path
+          required: true
+          description: The unique identifier of the dashboard template
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: A dashboard template
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DashboardTemplate'
+        '403':
+          description: Unauthorized access to the dashboard template
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Dashboard template not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    patch:
+      summary: Update a specific dashboard template
+      operationId: updateWidgetLayoutById
+      parameters:
+        - name: dashboardTemplateId
+          in: path
+          required: true
+          description: The unique identifier of the dashboard template
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        description: The dashboard template data to update
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DashboardTemplate'
+      responses:
+        '200':
+          description: A dashboard template
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DashboardTemplate'
+        '404':
+          description: Dashboard template not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Unauthorized access to the dashboard template
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '400':
+          description: Bad request, possibly due to invalid template data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      summary: Delete a specific dashboard template
+      operationId: deleteWidgetLayoutById
+      parameters:
+        - name: dashboardTemplateId
+          in: path
+          required: true
+          description: The unique identifier of the dashboard template
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '204':
+          description: Dashboard template deleted successfully
+        '403':
+          description: Unauthorized access to delete the dashboard template
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Dashboard template not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /{dashboardTemplateId}/copy:
+    post:
+      summary: Copy a specific dashboard template
+      operationId: copyWidgetLayoutById
+      parameters:
+        - name: dashboardTemplateId
+          in: path
+          required: true
+          description: The unique identifier of the dashboard template to copy
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: A copied dashboard template
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DashboardTemplate'
+        '404':
+          description: Dashboard template not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /{dashboardTemplateId}/default:
+    post:
+      summary: Set a specific dashboard template as default
+      operationId: setWidgetLayoutDefaultById
+      parameters:
+        - name: dashboardTemplateId
+          in: path
+          required: true
+          description: The unique identifier of the dashboard template to set as default
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Dashboard template set as default successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DashboardTemplate'
+        '404':
+          description: Dashboard template not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Unauthorized access to set the dashboard template as default
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /{dashboardTemplateId}/reset:
+    post:
+      summary: Reset a specific dashboard template to its default state
+      operationId: resetWidgetLayoutById
+      parameters:
+        - name: dashboardTemplateId
+          in: path
+          required: true
+          description: The unique identifier of the dashboard template to reset
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Dashboard template reset successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DashboardTemplate'
+        '404':
+          description: Dashboard template not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Unauthorized access to reset the dashboard template
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 components:
   schemas:
     WidgetItem:
@@ -272,4 +501,24 @@ components:
       type: array
       items:
         $ref: '#/components/schemas/DashboardTemplate'
-
+    ErrorPayload:
+      type: object
+      properties:
+        code:
+          type: integer
+          description: The error code
+        message:
+          type: string
+          description: The error message
+      required:
+        - code
+        - message
+    ErrorResponse:
+      type: object
+      required:
+        - errors
+      properties:
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ErrorPayload'
