@@ -13,6 +13,7 @@ Welcome to the Widget Layout Backend project!
 
 We use a comprehensive testing system with unique ID generation to ensure reliable, conflict-free tests. Key features:
 
+- **Focused Test Files**: We prefer multiple smaller, focused test files over large monolithic ones for better maintainability and organization
 - **Unique ID Generator**: Prevents test conflicts with collision-free ID generation
 - **Reserved Constants**: Special IDs for non-existent records and mock scenarios
 - **Thread Safety**: Safe for concurrent test execution

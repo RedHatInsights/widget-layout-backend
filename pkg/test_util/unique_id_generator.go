@@ -13,6 +13,7 @@
 package test_util
 
 import (
+	"fmt"
 	"math/rand"
 	"sync"
 	"time"
@@ -108,4 +109,80 @@ func ReserveID(id uint) {
 // ResetIDGenerator is a convenience function to reset the ID generator
 func ResetIDGenerator() {
 	GetUniqueIDGenerator().Reset()
+}
+
+// UniqueUserIDGenerator generates unique user IDs for tests to prevent conflicts between tests.
+//
+// This generator ensures that each test gets a unique user ID, preventing database conflicts
+// and test interference when multiple tests create records for different users.
+//
+// The generator is thread-safe and provides collision-free user IDs.
+type UniqueUserIDGenerator struct {
+	usedUserIDs map[string]bool // Track which user IDs have been used
+	mutex       sync.Mutex      // Ensure thread safety
+	counter     int             // Simple counter for generating IDs
+}
+
+var (
+	globalUserIDGenerator *UniqueUserIDGenerator
+	userIDOnce            sync.Once
+)
+
+// GetUniqueUserIDGenerator returns a singleton instance of UniqueUserIDGenerator
+func GetUniqueUserIDGenerator() *UniqueUserIDGenerator {
+	userIDOnce.Do(func() {
+		globalUserIDGenerator = &UniqueUserIDGenerator{
+			usedUserIDs: make(map[string]bool),
+			mutex:       sync.Mutex{},
+			counter:     1,
+		}
+	})
+	return globalUserIDGenerator
+}
+
+// GenerateUniqueUserID generates a unique user ID that hasn't been used before
+// Returns a string in the format "test-user-{counter}" where counter is incremented for each call
+func (g *UniqueUserIDGenerator) GenerateUniqueUserID() string {
+	g.mutex.Lock()
+	defer g.mutex.Unlock()
+
+	for {
+		userID := fmt.Sprintf("test-user-%d", g.counter)
+		g.counter++
+
+		if !g.usedUserIDs[userID] {
+			g.usedUserIDs[userID] = true
+			return userID
+		}
+	}
+}
+
+// ReserveUserID marks a user ID as used (useful for hardcoded user IDs in existing tests)
+func (g *UniqueUserIDGenerator) ReserveUserID(userID string) {
+	g.mutex.Lock()
+	defer g.mutex.Unlock()
+	g.usedUserIDs[userID] = true
+}
+
+// Reset clears all used user IDs (useful for test cleanup)
+func (g *UniqueUserIDGenerator) Reset() {
+	g.mutex.Lock()
+	defer g.mutex.Unlock()
+	g.usedUserIDs = make(map[string]bool)
+	g.counter = 1
+}
+
+// GetUniqueUserID is a convenience function to get a unique user ID
+func GetUniqueUserID() string {
+	return GetUniqueUserIDGenerator().GenerateUniqueUserID()
+}
+
+// ReserveUserID is a convenience function to reserve a user ID
+func ReserveUserID(userID string) {
+	GetUniqueUserIDGenerator().ReserveUserID(userID)
+}
+
+// ResetUserIDGenerator is a convenience function to reset the user ID generator
+func ResetUserIDGenerator() {
+	GetUniqueUserIDGenerator().Reset()
 }

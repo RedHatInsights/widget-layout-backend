@@ -40,6 +40,19 @@ The unique ID generator (`pkg/test_util/unique_id_generator.go`) provides:
 - **Reserved IDs**: Special constants for specific test scenarios
 - **Reset functionality**: Clean state between test runs
 
+## User ID Generator
+
+For preventing user-specific conflicts in tests, we also provide a unique user ID generator.
+
+### Overview
+
+The unique user ID generator (also in `pkg/test_util/unique_id_generator.go`) provides:
+
+- **Collision-free User IDs**: Ensures no two tests use the same user ID
+- **Thread safety**: Safe for concurrent test execution
+- **Consistent format**: Generates user IDs in the format "test-user-{counter}"
+- **Reset functionality**: Clean state between test runs
+
 ### Reserved ID Constants
 
 ```go
@@ -60,10 +73,12 @@ const (
 func TestCreateTemplate(t *testing.T) {
     // Get a unique ID for this test
     templateID := test_util.GetUniqueID()
+    // Get a unique user ID for this test
+    userID := test_util.GetUniqueUserID()
     
     template := api.DashboardTemplate{
         ID:     templateID,
-        UserId: "test-user",
+        UserId: userID,
         // ... other fields
     }
     
@@ -105,6 +120,45 @@ func TestUpdateWithoutDB(t *testing.T) {
 }
 ```
 
+#### Using Unique User IDs
+
+```go
+func TestUserAuthorization(t *testing.T) {
+    server := setupRouter()
+    
+    // Create templates for different users
+    userID1 := test_util.GetUniqueUserID()
+    userID2 := test_util.GetUniqueUserID()
+    
+    template1 := api.DashboardTemplate{
+        ID:     uint(test_util.GetUniqueID()),
+        UserId: userID1,
+        // ... other fields
+    }
+    template2 := api.DashboardTemplate{
+        ID:     uint(test_util.GetUniqueID()),
+        UserId: userID2,
+        // ... other fields
+    }
+    
+    // Create templates in database
+    database.DB.Create(&template1)
+    database.DB.Create(&template2)
+    
+    // Test that user1 can only access their own template
+    req, _ := http.NewRequest("GET", fmt.Sprintf("/%d", template1.ID), nil)
+    req = withCustomIdentityContext(req, test_util.GenerateIdentityStructFromTemplate(
+        xrhidgen.Identity{},
+        xrhidgen.User{UserID: stringPtr(userID1)},
+        xrhidgen.Entitlements{},
+    ))
+    w := httptest.NewRecorder()
+    
+    server.GetWidgetLayoutById(w, req, int64(template1.ID))
+    assert.Equal(t, http.StatusOK, w.Code)
+}
+```
+
 ### Test Setup and Cleanup
 
 #### TestMain Pattern
@@ -113,12 +167,17 @@ func TestUpdateWithoutDB(t *testing.T) {
 func TestMain(m *testing.M) {
     // ... database setup ...
     
-    // Reset the unique ID generator for clean tests
+    // Reset the unique ID generators for clean tests
     test_util.ResetIDGenerator()
+    test_util.ResetUserIDGenerator()
     
     // Reserve hardcoded IDs used in special test scenarios
     test_util.ReserveID(test_util.NoDBTestID)
     test_util.ReserveID(test_util.NonExistentID)
+    
+    // Reserve commonly used user IDs to prevent conflicts
+    test_util.ReserveUserID("user-123")       // Used in some existing tests
+    test_util.ReserveUserID("different-user") // Used in authorization tests
     
     exitCode := m.Run()
     
@@ -132,22 +191,27 @@ func TestMain(m *testing.M) {
 #### ✅ Do
 
 - Use `test_util.GetUniqueID()` for all database record IDs
+- Use `test_util.GetUniqueUserID()` for all user IDs in tests
 - Use reserved constants (`NonExistentID`, `NoDBTestID`) for special test cases
-- Reset the ID generator in `TestMain` before running tests
-- Reserve special IDs in `TestMain` to prevent conflicts
+- Reset both ID generators in `TestMain` before running tests
+- Reserve special IDs and user IDs in `TestMain` to prevent conflicts
 
 #### ❌ Don't
 
-- Use hardcoded IDs in tests (except reserved constants)
-- Reuse IDs across different test cases
-- Forget to reset the ID generator between test runs
-- Use magic numbers for test IDs
+- Use hardcoded IDs or user IDs in tests (except reserved constants)
+- Reuse IDs or user IDs across different test cases
+- Forget to reset the generators between test runs
+- Use magic numbers or hardcoded strings for test identifiers
 
 ### Helper Functions
 
 The test utilities provide several helper functions:
 
 ```go
+// Generate unique IDs
+templateID := test_util.GetUniqueID()
+userID := test_util.GetUniqueUserID()
+
 // Generate a unique dashboard template with random ID
 template := test_util.MockDashboardTemplate()
 
@@ -159,6 +223,13 @@ template := test_util.MockDashboardTemplateWithUniqueID()
 
 // Generate test identity for authentication
 identity := test_util.GenerateIdentityStruct()
+
+// Generate identity with specific user ID
+identity := test_util.GenerateIdentityStructFromTemplate(
+    xrhidgen.Identity{},
+    xrhidgen.User{UserID: stringPtr(userID)},
+    xrhidgen.Entitlements{},
+)
 
 // Generate identity header string for HTTP requests
 headerValue := test_util.GenerateIdentityHeader()
