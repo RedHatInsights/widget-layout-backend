@@ -43,6 +43,7 @@ Most endpoints require a valid `x-rh-identity` header. See [DEVELOPMENT_IDENTITY
 - See the Makefile for available commands.
 - See the `cmd/dev/user-identity.go` script for identity header generation logic.
 - See **[TESTING.md](TESTING.md)** for comprehensive testing documentation.
+- See **[AI_AGENT_CONTEXT.md](AI_AGENT_CONTEXT.md)** for guidelines when using AI-assisted development.
 
 ---
 
