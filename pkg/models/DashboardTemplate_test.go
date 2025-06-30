@@ -5,6 +5,7 @@ import (
 
 	"github.com/RedHatInsights/widget-layout-backend/api"
 	"github.com/RedHatInsights/widget-layout-backend/pkg/database"
+	"github.com/RedHatInsights/widget-layout-backend/pkg/test_util"
 	"github.com/stretchr/testify/assert"
 	"gorm.io/datatypes"
 )
@@ -15,11 +16,10 @@ func TestDashboardTemplateModel(t *testing.T) {
 			{
 				Height:     2,
 				Width:      2,
-				X:          0,
+				X:          test_util.IntPTR(0),
 				WidgetType: "widget1",
-				Y:          0,
+				Y:          test_util.IntPTR(0),
 				Static:     false,
-				Title:      "Sample Widget",
 				MaxHeight:  4,
 				MinHeight:  1,
 			},

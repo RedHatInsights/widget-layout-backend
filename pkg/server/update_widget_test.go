@@ -77,11 +77,10 @@ func TestUpdateWidgetLayoutById(t *testing.T) {
 		testWidget := api.WidgetItem{
 			Height:     3,
 			Width:      2,
-			X:          0,
+			X:          test_util.IntPTR(0),
 			WidgetType: "test-widget",
-			Y:          0,
+			Y:          test_util.IntPTR(0),
 			Static:     false,
-			Title:      "Test Widget",
 			MaxHeight:  4,
 			MinHeight:  1,
 		}

@@ -21,7 +21,7 @@ generate:
 	go generate ./...
 
 test:
-	go test -coverprofile=coverage.out ./... $(ARGS)
+	go test -coverprofile=coverage.out ./... -v
 	@go tool cover -html=coverage.out -o coverage.html
 
 infra:

@@ -253,7 +253,6 @@ components:
       - x
       - "y"
       - widgetType
-      - static
       - title
       - maxHeight
       - minHeight
@@ -294,12 +293,14 @@ components:
           maximum: 3
           x-oapi-codegen-extra-tags:
             yaml: "x"
+          x-go-type: "*int"
         y:
           type: integer
           description: The y position of the widget in the grid
           minimum: 0
           x-oapi-codegen-extra-tags:
             yaml: "y"
+          x-go-type: "*int"
         widgetType:
           type: string
           description: The unique identifier of the widget
@@ -310,12 +311,8 @@ components:
           type: boolean
           description: Whether the widget is locked in the grid
           x-oapi-codegen-extra-tags:
-            yaml: "static"
-        title:
-          type: string
-          description: The title of the widget
-          x-oapi-codegen-extra-tags:
-            yaml: "title"
+            yaml: "static,omitempty"
+          x-go-type-skip-optional-pointer: true
     DashboardTemplateConfig:
       type: object
       required:

@@ -22,22 +22,20 @@ func TestGetWidgets(t *testing.T) {
 		testWidget1 := api.WidgetItem{
 			Height:     2,
 			Width:      2,
-			X:          0,
+			X:          test_util.IntPTR(0),
 			WidgetType: "widget1",
-			Y:          0,
+			Y:          test_util.IntPTR(0),
 			Static:     false,
-			Title:      "Sample Widget 1",
 			MaxHeight:  4,
 			MinHeight:  1,
 		}
 		testWidget2 := api.WidgetItem{
 			Height:     3,
 			Width:      3,
-			X:          2,
+			X:          test_util.IntPTR(2),
 			WidgetType: "widget2",
-			Y:          0,
+			Y:          test_util.IntPTR(0),
 			Static:     false,
-			Title:      "Sample Widget 2",
 			MaxHeight:  6,
 			MinHeight:  2,
 		}
