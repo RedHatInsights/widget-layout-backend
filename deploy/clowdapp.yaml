@@ -55,6 +55,18 @@ objects:
               value: ${CLOWDER_ENABLED}
             - name: LOG_LEVEL 
               value: ${LOG_LEVEL}
+            # FEO generated base layout config
+            - name: BASE_LAYOUTS
+              valueFrom:
+                configMapKeyRef:
+                  name: ${FEO_BASE_LAYOUTS_CONFIGMAP}
+                  key: base-widget-dashboard-templates.json
+            # FEO generated widget mapping config
+            - name: WIDGET_MAPPING
+              valueFrom:
+                configMapKeyRef:
+                  name: ${FEO_WIDGET_MAPPING_CONFIGMAP}
+                  key: widget-registry.json
             resources:
               limits:
                 cpu: ${CPU_LIMIT_WIDGET_LAYOUT}
@@ -81,3 +93,9 @@ parameters:
   value: 256Mi
 - name: MIN_REPLICAS
   value: '3'
+- description: Chrome config map name
+  name: FRONTEND_CONTEXT_NAME
+  value: base-widget-dashboard-templates-cfg
+- description: Widget mapping config map name
+  name: WIDGET_MAPPING_CONFIGMAP
+  value: widget-registry-cfg

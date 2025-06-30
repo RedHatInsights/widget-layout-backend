@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/RedHatInsights/widget-layout-backend/api"
-	"github.com/RedHatInsights/widget-layout-backend/pkg/models"
 	"github.com/RedHatInsights/widget-layout-backend/pkg/service"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -137,7 +136,7 @@ const invalidJSON = `[
 func TestLoadBaseTemplatesFromConfig(t *testing.T) {
 	t.Run("should load valid base templates from JSON config", func(t *testing.T) {
 		// Reset registry for clean test
-		service.BaseTemplateRegistry = models.BaseWidgetDashboardTemplateRegistry{}
+		service.BaseTemplateRegistry = api.BaseWidgetDashboardTemplateRegistry{}
 
 		err := service.LoadBaseTemplatesFromConfig(validBaseTemplateJSON)
 		require.NoError(t, err)
@@ -150,7 +149,6 @@ func TestLoadBaseTemplatesFromConfig(t *testing.T) {
 		assert.True(t, exists)
 		assert.Equal(t, "test-template-1", template1.Name)
 		assert.Equal(t, "Test Template 1", template1.DisplayName)
-		assert.Equal(t, "test-frontend-1", template1.FrontendRef)
 
 		// Verify template config structure
 		assert.NotNil(t, template1.TemplateConfig.Sm)
@@ -163,12 +161,11 @@ func TestLoadBaseTemplatesFromConfig(t *testing.T) {
 		assert.True(t, exists)
 		assert.Equal(t, "test-template-2", template2.Name)
 		assert.Equal(t, "Test Template 2", template2.DisplayName)
-		assert.Equal(t, "test-frontend-2", template2.FrontendRef)
 	})
 
 	t.Run("should handle empty config string", func(t *testing.T) {
 		// Reset registry for clean test
-		service.BaseTemplateRegistry = models.BaseWidgetDashboardTemplateRegistry{}
+		service.BaseTemplateRegistry = api.BaseWidgetDashboardTemplateRegistry{}
 
 		err := service.LoadBaseTemplatesFromConfig("")
 		require.NoError(t, err)
@@ -179,7 +176,7 @@ func TestLoadBaseTemplatesFromConfig(t *testing.T) {
 
 	t.Run("should return error for invalid JSON", func(t *testing.T) {
 		// Reset registry for clean test
-		service.BaseTemplateRegistry = models.BaseWidgetDashboardTemplateRegistry{}
+		service.BaseTemplateRegistry = api.BaseWidgetDashboardTemplateRegistry{}
 
 		err := service.LoadBaseTemplatesFromConfig(invalidJSON)
 		assert.Error(t, err)
@@ -190,7 +187,7 @@ func TestLoadBaseTemplatesFromConfig(t *testing.T) {
 
 	t.Run("should handle malformed JSON structure", func(t *testing.T) {
 		// Reset registry for clean test
-		service.BaseTemplateRegistry = models.BaseWidgetDashboardTemplateRegistry{}
+		service.BaseTemplateRegistry = api.BaseWidgetDashboardTemplateRegistry{}
 
 		malformedJSON := `{"not": "an array"}`
 		err := service.LoadBaseTemplatesFromConfig(malformedJSON)
@@ -202,7 +199,7 @@ func TestLoadBaseTemplatesFromConfig(t *testing.T) {
 
 	t.Run("should handle completely invalid JSON", func(t *testing.T) {
 		// Reset registry for clean test
-		service.BaseTemplateRegistry = models.BaseWidgetDashboardTemplateRegistry{}
+		service.BaseTemplateRegistry = api.BaseWidgetDashboardTemplateRegistry{}
 
 		invalidJSONString := `not json at all`
 		err := service.LoadBaseTemplatesFromConfig(invalidJSONString)
@@ -214,7 +211,7 @@ func TestLoadBaseTemplatesFromConfig(t *testing.T) {
 
 	t.Run("should handle partial template data", func(t *testing.T) {
 		// Reset registry for clean test
-		service.BaseTemplateRegistry = models.BaseWidgetDashboardTemplateRegistry{}
+		service.BaseTemplateRegistry = api.BaseWidgetDashboardTemplateRegistry{}
 
 		partialTemplateJSON := `[
 			{
@@ -239,15 +236,14 @@ func TestLoadBaseTemplatesFromConfig(t *testing.T) {
 		assert.True(t, exists)
 		assert.Equal(t, "partial-template", template.Name)
 		assert.Equal(t, "Partial Template", template.DisplayName)
-		assert.Empty(t, template.FrontendRef) // Should be empty when not provided
 	})
 }
 
 func TestBaseWidgetDashboardTemplateRegistry(t *testing.T) {
 	t.Run("should add and retrieve base templates", func(t *testing.T) {
-		registry := models.BaseWidgetDashboardTemplateRegistry{}
+		registry := api.BaseWidgetDashboardTemplateRegistry{}
 
-		template := models.BaseWidgetDashboardTemplate{
+		template := api.BaseWidgetDashboardTemplate{
 			Name:        "test-template",
 			DisplayName: "Test Template",
 			TemplateConfig: api.DashboardTemplateConfig{
@@ -256,7 +252,6 @@ func TestBaseWidgetDashboardTemplateRegistry(t *testing.T) {
 				Lg: datatypes.NewJSONType([]api.WidgetItem{}),
 				Xl: datatypes.NewJSONType([]api.WidgetItem{}),
 			},
-			FrontendRef: "test-frontend",
 		}
 
 		registry.AddBase(template)
@@ -265,11 +260,10 @@ func TestBaseWidgetDashboardTemplateRegistry(t *testing.T) {
 		assert.True(t, exists)
 		assert.Equal(t, "test-template", retrievedTemplate.Name)
 		assert.Equal(t, "Test Template", retrievedTemplate.DisplayName)
-		assert.Equal(t, "test-frontend", retrievedTemplate.FrontendRef)
 	})
 
 	t.Run("should handle non-existent template", func(t *testing.T) {
-		registry := models.BaseWidgetDashboardTemplateRegistry{}
+		registry := api.BaseWidgetDashboardTemplateRegistry{}
 
 		template, exists := registry.GetBase("non-existent-template")
 		assert.False(t, exists)
@@ -277,21 +271,19 @@ func TestBaseWidgetDashboardTemplateRegistry(t *testing.T) {
 	})
 
 	t.Run("should overwrite existing template with same name", func(t *testing.T) {
-		registry := models.BaseWidgetDashboardTemplateRegistry{}
+		registry := api.BaseWidgetDashboardTemplateRegistry{}
 
 		// Add first template
-		template1 := models.BaseWidgetDashboardTemplate{
+		template1 := api.BaseWidgetDashboardTemplate{
 			Name:        "same-name",
 			DisplayName: "First Template",
-			FrontendRef: "first-frontend",
 		}
 		registry.AddBase(template1)
 
 		// Add second template with same name
-		template2 := models.BaseWidgetDashboardTemplate{
+		template2 := api.BaseWidgetDashboardTemplate{
 			Name:        "same-name",
 			DisplayName: "Second Template",
-			FrontendRef: "second-frontend",
 		}
 		registry.AddBase(template2)
 
@@ -301,13 +293,12 @@ func TestBaseWidgetDashboardTemplateRegistry(t *testing.T) {
 		retrievedTemplate, exists := registry.GetBase("same-name")
 		assert.True(t, exists)
 		assert.Equal(t, "Second Template", retrievedTemplate.DisplayName)
-		assert.Equal(t, "second-frontend", retrievedTemplate.FrontendRef)
 	})
 }
 
 func TestBaseWidgetDashboardTemplateToDashboardTemplate(t *testing.T) {
 	t.Run("should convert BaseWidgetDashboardTemplate to DashboardTemplate", func(t *testing.T) {
-		baseTemplate := models.BaseWidgetDashboardTemplate{
+		baseTemplate := api.BaseWidgetDashboardTemplate{
 			Name:        "test-template",
 			DisplayName: "Test Template",
 			TemplateConfig: api.DashboardTemplateConfig{
@@ -326,7 +317,6 @@ func TestBaseWidgetDashboardTemplateToDashboardTemplate(t *testing.T) {
 				Lg: datatypes.NewJSONType([]api.WidgetItem{}),
 				Xl: datatypes.NewJSONType([]api.WidgetItem{}),
 			},
-			FrontendRef: "test-frontend",
 		}
 
 		dashboardTemplate := baseTemplate.ToDashboardTemplate()
@@ -341,7 +331,7 @@ func TestConfigurationIntegration(t *testing.T) {
 	t.Run("should work with environment variable format", func(t *testing.T) {
 		// This test simulates how the configuration would be used in practice
 		// Reset registry for clean test
-		service.BaseTemplateRegistry = models.BaseWidgetDashboardTemplateRegistry{}
+		service.BaseTemplateRegistry = api.BaseWidgetDashboardTemplateRegistry{}
 
 		// Set environment variable temporarily
 		originalEnv := os.Getenv("BASE_LAYOUTS")

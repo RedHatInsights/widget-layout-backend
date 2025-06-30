@@ -175,11 +175,9 @@ func (Server) SetWidgetLayoutDefaultById(w http.ResponseWriter, r *http.Request,
 func (Server) ResetWidgetLayoutById(w http.ResponseWriter, r *http.Request, dashboardTemplateId int64) {
 	id := middlewares.GetUserIdentity(r.Context())
 	w.Header().Set("Content-Type", "application/json")
-	// TODO: Implement reset functionality
-	// Reset functionality not yet implemented, will require collection of base templates to exist
-	resp, status, err := service.GetTemplateByID(dashboardTemplateId, id)
+	resp, status, err := service.ResetDashboardTemplate(dashboardTemplateId, id)
 	if err != nil {
-		logrus.Errorf("Failed to get dashboard template for reset: %v", err)
+		logrus.Errorf("Failed to reset dashboard template: %v", err)
 		w.WriteHeader(status)
 		_ = json.NewEncoder(w).Encode(api.ErrorResponse{Errors: []api.ErrorPayload{
 			{
@@ -189,6 +187,88 @@ func (Server) ResetWidgetLayoutById(w http.ResponseWriter, r *http.Request, dash
 		}})
 		return
 	}
+	w.WriteHeader(status)
+	err = json.NewEncoder(w).Encode(resp)
+	if err != nil {
+		logrus.Errorf("Failed to encode response: %v", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+}
+
+func (Server) GetBaseWidgetDashboardTemplates(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	templateMap := service.BaseTemplateRegistry.GetAllBases()
+
+	// Convert map to array to match API spec
+	templates := make([]api.BaseWidgetDashboardTemplate, 0, len(templateMap))
+	for _, template := range templateMap {
+		templates = append(templates, template)
+	}
+
 	w.WriteHeader(http.StatusOK)
-	_ = json.NewEncoder(w).Encode(resp)
+	err := json.NewEncoder(w).Encode(templates)
+	if err != nil {
+		logrus.Errorf("Failed to encode base widget dashboard templates: %v", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+}
+
+func (Server) GetBaseWidgetDashboardTemplateByName(w http.ResponseWriter, r *http.Request, baseTemplateName string) {
+	w.Header().Set("Content-Type", "application/json")
+	template, exists := service.BaseTemplateRegistry.GetBase(baseTemplateName)
+	if !exists {
+		w.WriteHeader(http.StatusNotFound)
+		_ = json.NewEncoder(w).Encode(api.ErrorResponse{Errors: []api.ErrorPayload{
+			{
+				Code:    http.StatusNotFound,
+				Message: "Base template not found",
+			},
+		}})
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+	err := json.NewEncoder(w).Encode(template)
+	if err != nil {
+		logrus.Errorf("Failed to encode base widget dashboard template: %v", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+}
+
+func (Server) ForkBaseWidgetDashboardTemplateByName(w http.ResponseWriter, r *http.Request, baseTemplateName string) {
+	id := middlewares.GetUserIdentity(r.Context())
+	w.Header().Set("Content-Type", "application/json")
+	resp, status, err := service.ForkBaseTemplate(baseTemplateName, id)
+	if err != nil {
+		logrus.Errorf("Failed to fork base widget dashboard template: %v", err)
+		w.WriteHeader(status)
+		_ = json.NewEncoder(w).Encode(api.ErrorResponse{Errors: []api.ErrorPayload{
+			{
+				Code:    status,
+				Message: err.Error(),
+			},
+		}})
+		return
+	}
+	w.WriteHeader(status)
+	err = json.NewEncoder(w).Encode(resp)
+	if err != nil {
+		logrus.Errorf("Failed to encode response: %v", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+}
+
+func (Server) GetWidgetMapping(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	mappings := service.GetWidgetMappings()
+	w.WriteHeader(http.StatusOK)
+	err := json.NewEncoder(w).Encode(mappings)
+	if err != nil {
+		logrus.Errorf("Failed to encode widget mappings: %v", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
 }

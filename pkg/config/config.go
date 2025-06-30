@@ -27,6 +27,7 @@ type WidgetLayoutConfig struct {
 	DatabaseConfig               DatabaseConfig
 	TestMode                     bool
 	BaseWidgetDashboardTemplates string
+	WidgetMappingConfig          string
 }
 
 var config *WidgetLayoutConfig
@@ -95,6 +96,7 @@ func init() {
 	}
 
 	config.BaseWidgetDashboardTemplates = os.Getenv("BASE_LAYOUTS")
+	config.WidgetMappingConfig = os.Getenv("WIDGET_MAPPING")
 }
 
 func GetConfig() *WidgetLayoutConfig {

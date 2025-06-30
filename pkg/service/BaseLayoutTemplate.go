@@ -3,19 +3,19 @@ package service
 import (
 	"encoding/json"
 
+	"github.com/RedHatInsights/widget-layout-backend/api"
 	"github.com/RedHatInsights/widget-layout-backend/pkg/config"
-	"github.com/RedHatInsights/widget-layout-backend/pkg/models"
 	"github.com/sirupsen/logrus"
 )
 
-var BaseTemplateRegistry = models.BaseWidgetDashboardTemplateRegistry{}
+var BaseTemplateRegistry = api.BaseWidgetDashboardTemplateRegistry{}
 
 // LoadBaseTemplatesFromConfig loads base widget dashboard templates from config string.
 func LoadBaseTemplatesFromConfig(configString string) error {
 	if configString == "" {
 		return nil
 	}
-	var baseTemplates []models.BaseWidgetDashboardTemplate
+	var baseTemplates []api.BaseWidgetDashboardTemplate
 	err := json.Unmarshal([]byte(configString), &baseTemplates)
 	if err != nil {
 		return err
