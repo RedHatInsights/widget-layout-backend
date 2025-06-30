@@ -32,19 +32,28 @@ go test ./pkg/server -v
 go test ./pkg/server -count=3
 ```
 
-For comprehensive testing documentation, patterns, and best practices, see **[TESTING.md](TESTING.md)**.
+For comprehensive testing documentation, patterns, and best practices, see **[docs/TESTING.md](docs/TESTING.md)**.
 
 ## Local API Requests & Identity Header
 
-Most endpoints require a valid `x-rh-identity` header. See [DEVELOPMENT_IDENTITY_HEADER.md](DEVELOPMENT_IDENTITY_HEADER.md) for instructions on generating and using this header for local development and testing.
+Most endpoints require a valid `x-rh-identity` header. See [docs/DEVELOPMENT_IDENTITY_HEADER.md](docs/DEVELOPMENT_IDENTITY_HEADER.md) for instructions on generating and using this header for local development and testing.
+
+## Documentation
+
+All project documentation is organized in the `docs/` folder:
+
+- **[docs/TESTING.md](docs/TESTING.md)** - Comprehensive testing guide with patterns and best practices
+- **[docs/CONFIGURATION.md](docs/CONFIGURATION.md)** - Widget mapping and base template configuration guide
+- **[docs/DEVELOPMENT_IDENTITY_HEADER.md](docs/DEVELOPMENT_IDENTITY_HEADER.md)** - Identity header generation for local development
+- **[docs/AI_AGENT_CONTEXT.md](docs/AI_AGENT_CONTEXT.md)** - Guidelines for AI-assisted development
 
 ## More Information
 
 - See the Makefile for available commands.
 - See the `cmd/dev/user-identity.go` script for identity header generation logic.
-- See **[TESTING.md](TESTING.md)** for comprehensive testing documentation.
-- See **[AI_AGENT_CONTEXT.md](AI_AGENT_CONTEXT.md)** for guidelines when using AI-assisted development.
+- See **[docs/TESTING.md](docs/TESTING.md)** for comprehensive testing documentation.
+- See **[docs/AI_AGENT_CONTEXT.md](docs/AI_AGENT_CONTEXT.md)** for guidelines when using AI-assisted development.
 
 ---
 
-For more details, refer to the documentation files in this repository.
+For more details, refer to the documentation files in the [docs/](docs/) directory.

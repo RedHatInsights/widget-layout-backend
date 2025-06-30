@@ -9,7 +9,7 @@
 //   - Call ResetIDGenerator() in TestMain before running tests
 //   - Reserve special IDs in TestMain to prevent conflicts
 //
-// For comprehensive documentation, see TESTING.md
+// For comprehensive documentation, see docs/TESTING.md
 package test_util
 
 import (
