@@ -13,7 +13,7 @@ This document provides essential context and guidelines for LLM agents (like Cla
 ### 2. Documentation Accuracy
 - **Code-Documentation Sync** - Documentation MUST accurately reflect the actual code implementation
 - **Verify before documenting** - Always check the current code state before updating documentation
-- **Update all relevant docs** - When changing functionality, update README.md, TESTING.md, and any other relevant documentation
+- **Update all relevant docs** - When changing functionality, update README.md, docs/TESTING.md, and any other relevant documentation
 - **Include examples** - Provide working code examples in documentation that match the actual implementation
 
 ### 3. Cleanup and Maintenance
@@ -85,10 +85,20 @@ Before updating any documentation:
 
 ### Documentation Files to Maintain
 
-- **README.md** - High-level project overview, quick start, testing philosophy
-- **TESTING.md** - Comprehensive testing guide with working examples
-- **DEVELOPMENT_IDENTITY_HEADER.md** - Identity header generation and usage
-- **AI_AGENT_CONTEXT.md** - This file, for AI agents working on the codebase
+All project documentation is organized in the `docs/` folder for better organization and clarity:
+
+- **README.md** - High-level project overview, quick start, testing philosophy (root level)
+- **docs/TESTING.md** - Comprehensive testing guide with working examples
+- **docs/CONFIGURATION.md** - Widget mapping and base template configuration guide
+- **docs/DEVELOPMENT_IDENTITY_HEADER.md** - Identity header generation and usage
+- **docs/AI_AGENT_CONTEXT.md** - This file, for AI agents working on the codebase
+
+### Documentation Organization
+
+- Keep only **README.md** at the root level for immediate project overview
+- All other documentation lives in **docs/** for organized access
+- Update links when referencing documentation (use `docs/` prefix)
+- Maintain the documentation index in README.md
 
 ### Documentation Quality Checklist
 

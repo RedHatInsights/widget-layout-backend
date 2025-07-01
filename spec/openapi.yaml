@@ -243,6 +243,102 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /base-templates:
+    get:
+      summary: Get the base widget dashboard templates
+      operationId: getBaseWidgetDashboardTemplates
+      responses:
+        '200':
+          description: A list of base widget dashboard templates
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BaseWidgetDashboardTemplateList'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /base-templates/{baseTemplateName}:
+    get:
+      summary: Get a specific base widget dashboard template
+      operationId: getBaseWidgetDashboardTemplateByName
+      parameters:
+        - name: baseTemplateName
+          in: path
+          required: true
+          description: The unique name of the base widget dashboard template
+          schema:
+            type: string
+      responses:
+        '200':
+          description: A base widget dashboard template
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BaseWidgetDashboardTemplate'
+        '404':
+          description: Base widget dashboard template not found
+          content:
+            application/json: 
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /base-templates/{baseTemplateName}/fork:
+    get:
+      summary: Fork a specific base widget dashboard template
+      operationId: forkBaseWidgetDashboardTemplateByName
+      parameters:
+        - name: baseTemplateName
+          in: path
+          required: true
+          description: The unique name of the base widget dashboard template to fork
+          schema:
+            type: string
+      responses:
+        '200':
+          description: A forked base widget dashboard template
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DashboardTemplate'
+        '404':
+          description: Base widget dashboard template not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /widget-mapping:
+    get:
+      summary: Get the widget mapping
+      operationId: getWidgetMapping
+      responses:
+        '200':
+          description: A mapping of widget identifiers to their configurations
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties:
+                  $ref: '#/components/schemas/WidgetModuleFederationMetadata'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 components:
   schemas:
     WidgetItem:
@@ -253,7 +349,6 @@ components:
       - x
       - "y"
       - widgetType
-      - static
       - title
       - maxHeight
       - minHeight
@@ -294,12 +389,14 @@ components:
           maximum: 3
           x-oapi-codegen-extra-tags:
             yaml: "x"
+          x-go-type: "*int"
         y:
           type: integer
           description: The y position of the widget in the grid
           minimum: 0
           x-oapi-codegen-extra-tags:
             yaml: "y"
+          x-go-type: "*int"
         widgetType:
           type: string
           description: The unique identifier of the widget
@@ -310,12 +407,8 @@ components:
           type: boolean
           description: Whether the widget is locked in the grid
           x-oapi-codegen-extra-tags:
-            yaml: "static"
-        title:
-          type: string
-          description: The title of the widget
-          x-oapi-codegen-extra-tags:
-            yaml: "title"
+            yaml: "static,omitempty"
+          x-go-type-skip-optional-pointer: true
     DashboardTemplateConfig:
       type: object
       required:
@@ -501,6 +594,124 @@ components:
       type: array
       items:
         $ref: '#/components/schemas/DashboardTemplate'
+    BaseWidgetDashboardTemplate:
+      type: object
+      properties:
+        name:
+          type: string
+          description: The name of the base widget dashboard template
+          x-oapi-codegen-extra-tags:
+            yaml: "name"
+        displayName:
+          type: string
+          description: The display name of the base widget dashboard template
+          x-oapi-codegen-extra-tags:
+            yaml: "displayName"
+        templateConfig:
+          allOf:
+            - $ref: '#/components/schemas/DashboardTemplateConfig'
+          description: The configuration of the base widget dashboard template
+      required:
+        - name
+        - displayName
+        - templateConfig
+    BaseWidgetDashboardTemplateList:
+      type: array
+      items:
+        $ref: '#/components/schemas/BaseWidgetDashboardTemplate'
+    WidgetHeaderLink:
+      type: object
+      properties:
+        name:
+          type: string
+          description: The name of the widget header link
+        href:
+          type: string
+          description: The URL of the widget header link
+      required:
+        - name
+        - href
+    WidgetConfiguration:
+      type: 'object'
+      properties:
+        title:
+          type: string
+          description: The title of the widget
+        icon:
+          type: string
+          description: The icon of the widget
+        headerLink:
+          $ref: '#/components/schemas/WidgetHeaderLink'
+        permissions:
+          type: array
+          items:
+          # TODO: Define the permission schema
+            type: string
+          description: The permissions required to view the widget
+      required:
+        - title
+        - icon
+    WidgetBaseDimensions:
+      type: object
+      properties:
+        width:
+          type: integer
+          description: The width of the widget in the grid
+          minimum: 1
+          maximum: 4
+          x-oapi-codegen-extra-tags:
+            yaml: "w"
+            json: "w"
+          x-go-type: "*int"
+        height:
+          type: integer
+          description: The height of the widget in the grid
+          minimum: 1
+          x-oapi-codegen-extra-tags:
+            yaml: "h"
+            json: "h"
+          x-go-type: "*int"
+        maxHeight:
+          type: integer
+          description: The maximum height of the widget in the grid
+          minimum: 1
+          x-oapi-codegen-extra-tags:
+            yaml: "maxH"
+            json: "maxH"
+        minHeight:
+          type: integer
+          description: The minimum height of the widget in the grid
+          minimum: 1
+          x-oapi-codegen-extra-tags:
+            yaml: "minH"
+            json: "minH"
+      required:
+        - width
+        - height  
+    WidgetModuleFederationMetadata:
+      type: object
+      properties:
+        scope:
+          type: string
+          description: The scope of the widget module federation
+        module:
+          type: string
+          description: The module of the widget module federation
+        importName:
+          type: string
+          description: The import name of the widget module federation
+        featureFlag:
+          type: string
+          description: The feature flag associated with the widget module federation
+        config:
+          $ref: '#/components/schemas/WidgetConfiguration'
+        defaults:
+          $ref: '#/components/schemas/WidgetBaseDimensions'
+      required:
+        - scope
+        - module
+        - config
+        - defaults
     ErrorPayload:
       type: object
       properties:

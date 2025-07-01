@@ -26,11 +26,10 @@ func TestGetWidgetLayoutById(t *testing.T) {
 		testWidget := api.WidgetItem{
 			Height:     2,
 			Width:      2,
-			X:          0,
+			X:          test_util.IntPTR(0),
 			WidgetType: "widget1",
-			Y:          0,
+			Y:          test_util.IntPTR(0),
 			Static:     false,
-			Title:      "Sample Widget",
 			MaxHeight:  4,
 			MinHeight:  1,
 		}
@@ -108,11 +107,10 @@ func TestGetWidgetLayoutById(t *testing.T) {
 				Lg: datatypes.NewJSONType([]api.WidgetItem{{
 					Height:     2,
 					Width:      2,
-					X:          0,
+					X:          test_util.IntPTR(0),
 					WidgetType: "widget1",
-					Y:          0,
+					Y:          test_util.IntPTR(0),
 					Static:     false,
-					Title:      "Other User Widget",
 					MaxHeight:  4,
 					MinHeight:  1,
 				}}),
@@ -163,11 +161,10 @@ func TestGetWidgetLayoutById(t *testing.T) {
 				Lg: datatypes.NewJSONType([]api.WidgetItem{{
 					Height:     3,
 					Width:      4,
-					X:          1,
+					X:          test_util.IntPTR(1),
 					WidgetType: "test-widget",
-					Y:          2,
+					Y:          test_util.IntPTR(2),
 					Static:     true,
-					Title:      "Test Widget Title",
 					MaxHeight:  6,
 					MinHeight:  1,
 				}}),
@@ -211,7 +208,6 @@ func TestGetWidgetLayoutById(t *testing.T) {
 			assert.Equal(t, originalWidgets[0].Height, responseWidgets[0].Height, "Widget height should match")
 			assert.Equal(t, originalWidgets[0].Width, responseWidgets[0].Width, "Widget width should match")
 			assert.Equal(t, originalWidgets[0].WidgetType, responseWidgets[0].WidgetType, "Widget type should match")
-			assert.Equal(t, originalWidgets[0].Title, responseWidgets[0].Title, "Widget title should match")
 		}
 	})
 }

@@ -21,11 +21,13 @@ type DatabaseConfig struct {
 }
 
 type WidgetLayoutConfig struct {
-	LogLevel       string
-	WebPort        int
-	MetricsPort    int
-	DatabaseConfig DatabaseConfig
-	TestMode       bool
+	LogLevel                     string
+	WebPort                      int
+	MetricsPort                  int
+	DatabaseConfig               DatabaseConfig
+	TestMode                     bool
+	BaseWidgetDashboardTemplates string
+	WidgetMappingConfig          string
 }
 
 var config *WidgetLayoutConfig
@@ -92,6 +94,9 @@ func init() {
 		config.DatabaseConfig.DBSSLMode = "disable"
 		config.DatabaseConfig.DBDNS = fmt.Sprintf("host=%v user=%v password=%v dbname=%v port=%v sslmode=%v", config.DatabaseConfig.DBHost, config.DatabaseConfig.DBUser, config.DatabaseConfig.DBPassword, config.DatabaseConfig.DBName, config.DatabaseConfig.DBPort, config.DatabaseConfig.DBSSLMode)
 	}
+
+	config.BaseWidgetDashboardTemplates = os.Getenv("BASE_LAYOUTS")
+	config.WidgetMappingConfig = os.Getenv("WIDGET_MAPPING")
 }
 
 func GetConfig() *WidgetLayoutConfig {
