@@ -80,6 +80,30 @@ The `LoadWidgetMappingsFromConfig` function:
 - Stores mappings in `WidgetMappingRegistry`
 - Logs successful loading
 
+#### Widget Key Generation
+
+Widget mappings are stored in the registry using a unique key generated from the widget metadata:
+
+**Key Format**: `{scope}-{module}[-{importName}]`
+
+**Algorithm**:
+```go
+func (wc *WidgetModuleFederationMetadata) GetWidgetKey() string {
+    key := fmt.Sprintf("%s-%s", wc.Scope, wc.Module)
+    if wc.ImportName != nil && *wc.ImportName != "" {
+        key = fmt.Sprintf("%s-%s", key, *wc.ImportName)
+    }
+    return key
+}
+```
+
+**Examples**:
+- `insights-vulnerabilities-widget` (no importName)
+- `insights-compliance-widget-ComplianceWidget` (with importName)
+- `monitoring-alerts-widget-AlertsWidget` (with importName)
+
+This ensures each widget has a unique identifier even when multiple widgets come from the same scope/module combination.
+
 ## Configuration Formats
 
 ### Base Widget Dashboard Templates
@@ -349,4 +373,68 @@ mappings := service.WidgetMappingRegistry.GetAllWidgetMappings()
 ]
 ```
 
-This configuration system provides a flexible, scalable way to manage widget layouts and mappings while handling the technical constraints of YAML parsing and Kubernetes ConfigMap integration. 
+## Local Development Setup
+
+For local development, environment variables can be set through several methods:
+
+### Using .env File
+
+Create a `.env` file in the project root:
+
+```bash
+# .env file for local development
+BASE_LAYOUTS='[{"name":"local-dashboard","displayName":"Local Dashboard","templateConfig":{"sm":[],"md":[],"lg":[],"xl":[]}}]'
+WIDGET_MAPPING='[{"scope":"local","module":"test-widget","config":{"title":"Test Widget","icon":"test-icon"},"defaults":{"w":2,"h":2,"maxH":4,"minH":1}}]'
+```
+
+### Using Environment Variables
+
+Set variables directly in your shell:
+
+```bash
+# Set widget mapping
+export WIDGET_MAPPING='[
+  {
+    "scope": "insights",
+    "module": "test-widget", 
+    "config": {
+      "title": "Test Widget",
+      "icon": "test-icon"
+    },
+    "defaults": {
+      "w": 2,
+      "h": 2,
+      "maxH": 4,
+      "minH": 1
+    }
+  }
+]'
+
+# Set base layout
+export BASE_LAYOUTS='[
+  {
+    "name": "test-template",
+    "displayName": "Test Template",
+    "templateConfig": {
+      "sm": [],
+      "md": [],
+      "lg": [],
+      "xl": []
+    }
+  }
+]'
+```
+
+### Development vs Production
+
+| Environment | Configuration Source | Format |
+|-------------|---------------------|---------|
+| **Local Development** | Environment variables or `.env` file | JSON strings |
+| **Production/Kubernetes** | ConfigMaps mounted as environment variables | JSON strings |
+
+**Important Notes**:
+- **Use `cx`/`cy`** in configuration JSON (not `x`/`y`)
+- **JSON must be valid** - invalid JSON causes service startup failure
+- **Empty configurations** are handled gracefully (empty registries)
+
+This configuration system provides a flexible, scalable way to manage widget layouts and mappings while handling the technical constraints of YAML parsing and Kubernetes ConfigMap integration.

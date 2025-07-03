@@ -42,6 +42,7 @@ Most endpoints require a valid `x-rh-identity` header. See [docs/DEVELOPMENT_IDE
 
 All project documentation is organized in the `docs/` folder:
 
+- **[docs/API.md](docs/API.md)** - Complete API documentation with endpoints, examples, and schemas
 - **[docs/TESTING.md](docs/TESTING.md)** - Comprehensive testing guide with patterns and best practices
 - **[docs/CONFIGURATION.md](docs/CONFIGURATION.md)** - Widget mapping and base template configuration guide
 - **[docs/DEVELOPMENT_IDENTITY_HEADER.md](docs/DEVELOPMENT_IDENTITY_HEADER.md)** - Identity header generation for local development
@@ -49,6 +50,7 @@ All project documentation is organized in the `docs/` folder:
 
 ## More Information
 
+- See **[docs/API.md](docs/API.md)** for complete API documentation with endpoints, examples, and schemas.
 - See the Makefile for available commands.
 - See the `cmd/dev/user-identity.go` script for identity header generation logic.
 - See **[docs/TESTING.md](docs/TESTING.md)** for comprehensive testing documentation.
