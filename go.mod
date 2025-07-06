@@ -8,7 +8,6 @@ require (
 	github.com/joho/godotenv v1.5.1
 	github.com/oapi-codegen/nethttp-middleware v1.1.2
 	github.com/oapi-codegen/oapi-codegen/v2 v2.4.1
-	github.com/oapi-codegen/runtime v1.1.1
 	github.com/oasdiff/yaml v0.0.0-20250309154309-f31be36b4037
 	github.com/prometheus/client_golang v1.22.0
 	github.com/redhatinsights/app-common-go v1.6.8
@@ -24,14 +23,13 @@ require (
 
 require (
 	filippo.io/edwards25519 v1.1.0 // indirect
-	github.com/apapsch/go-jsonmerge/v2 v2.0.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/dprotaso/go-yit v0.0.0-20220510233725-9ba8df137936 // indirect
 	github.com/go-openapi/jsonpointer v0.21.0 // indirect
 	github.com/go-openapi/swag v0.23.0 // indirect
-	github.com/go-sql-driver/mysql v1.8.1 // indirect
+	github.com/go-sql-driver/mysql v1.9.3 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/gorilla/mux v1.8.1 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
