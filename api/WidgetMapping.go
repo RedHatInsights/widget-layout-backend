@@ -6,6 +6,10 @@ type WidgetMappingRegistry struct {
 	WidgetMappings map[string]WidgetModuleFederationMetadata `json:"widgetMappings" yaml:"widgetMappings"`
 }
 
+type WidgetMappingResponse struct {
+	Data map[string]WidgetModuleFederationMetadata `json:"data"`
+}
+
 func (wc *WidgetModuleFederationMetadata) GetWidgetKey() string {
 	// make key in format "scope-module<-importName>"
 	// This will be always unique

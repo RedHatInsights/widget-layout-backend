@@ -26,12 +26,12 @@ func TestGetWidgetMapping(t *testing.T) {
 
 		assert.Equal(t, http.StatusOK, w.Code, "Should return 200 OK")
 
-		var response map[string]api.WidgetModuleFederationMetadata
+		var response api.WidgetMappingResponse
 		err := json.Unmarshal(w.Body.Bytes(), &response)
 		require.NoError(t, err, "Should be able to unmarshal response")
 
 		assert.NotNil(t, response, "Response should not be nil")
-		assert.Empty(t, response, "Response should be empty map when no mappings exist")
+		assert.Empty(t, response.Data, "Response should be empty map when no mappings exist")
 	})
 
 	t.Run("should return all widget mappings when they exist", func(t *testing.T) {
@@ -81,16 +81,16 @@ func TestGetWidgetMapping(t *testing.T) {
 
 		assert.Equal(t, http.StatusOK, w.Code, "Should return 200 OK")
 
-		var response map[string]api.WidgetModuleFederationMetadata
+		var response api.WidgetMappingResponse
 		err := json.Unmarshal(w.Body.Bytes(), &response)
 		require.NoError(t, err, "Should be able to unmarshal response")
 
-		assert.Len(t, response, 2, "Should return both widget mappings")
+		assert.Len(t, response.Data, 2, "Should return both widget mappings")
 
 		// Verify first widget
 		widget1Key := widget1.GetWidgetKey()
-		assert.Contains(t, response, widget1Key, "Should contain first widget mapping")
-		retrievedWidget1 := response[widget1Key]
+		assert.Contains(t, response.Data, widget1Key, "Should contain first widget mapping")
+		retrievedWidget1 := response.Data[widget1Key]
 		assert.Equal(t, "insights", retrievedWidget1.Scope, "First widget scope should match")
 		assert.Equal(t, "dashboard-widget", retrievedWidget1.Module, "First widget module should match")
 		assert.Equal(t, "Dashboard Overview", retrievedWidget1.Config.Title, "First widget title should match")
@@ -98,8 +98,8 @@ func TestGetWidgetMapping(t *testing.T) {
 
 		// Verify second widget
 		widget2Key := widget2.GetWidgetKey()
-		assert.Contains(t, response, widget2Key, "Should contain second widget mapping")
-		retrievedWidget2 := response[widget2Key]
+		assert.Contains(t, response.Data, widget2Key, "Should contain second widget mapping")
+		retrievedWidget2 := response.Data[widget2Key]
 		assert.Equal(t, "monitoring", retrievedWidget2.Scope, "Second widget scope should match")
 		assert.Equal(t, "alerts-widget", retrievedWidget2.Module, "Second widget module should match")
 		assert.Equal(t, "Alert Status", retrievedWidget2.Config.Title, "Second widget title should match")
@@ -112,7 +112,11 @@ func TestGetWidgetMapping(t *testing.T) {
 
 		importName := "CustomComponent"
 		featureFlag := "enable-advanced-widgets"
-		permissions := []string{"read:insights", "write:monitoring"}
+		permissions := []api.Permission{
+			api.Permission{
+				Method: "isOrgAdmin",
+			},
+		}
 
 		widget := api.WidgetModuleFederationMetadata{
 			Scope:       "advanced",
@@ -146,15 +150,15 @@ func TestGetWidgetMapping(t *testing.T) {
 
 		assert.Equal(t, http.StatusOK, w.Code, "Should return 200 OK")
 
-		var response map[string]api.WidgetModuleFederationMetadata
+		var response api.WidgetMappingResponse
 		err := json.Unmarshal(w.Body.Bytes(), &response)
 		require.NoError(t, err, "Should be able to unmarshal response")
 
-		assert.Len(t, response, 1, "Should contain one widget mapping")
+		assert.Len(t, response.Data, 1, "Should contain one widget mapping")
 
 		widgetKey := widget.GetWidgetKey()
-		assert.Contains(t, response, widgetKey, "Should contain the widget mapping")
-		retrievedWidget := response[widgetKey]
+		assert.Contains(t, response.Data, widgetKey, "Should contain the widget mapping")
+		retrievedWidget := response.Data[widgetKey]
 
 		// Verify basic fields
 		assert.Equal(t, "advanced", retrievedWidget.Scope, "Widget scope should match")
@@ -226,26 +230,26 @@ func TestGetWidgetMapping(t *testing.T) {
 
 		assert.Equal(t, http.StatusOK, w.Code, "Should return 200 OK")
 
-		var response map[string]api.WidgetModuleFederationMetadata
+		var response api.WidgetMappingResponse
 		err := json.Unmarshal(w.Body.Bytes(), &response)
 		require.NoError(t, err, "Should be able to unmarshal response")
 
-		assert.Len(t, response, 2, "Should contain both widgets despite same scope/module")
+		assert.Len(t, response.Data, 2, "Should contain both widgets despite same scope/module")
 
 		// Verify both widgets are present with correct keys
 		widget1Key := "scope1-module1-ImportedComponent"
 		widget2Key := "scope1-module1"
 
-		assert.Contains(t, response, widget1Key, "Should contain widget with import name in key")
-		assert.Contains(t, response, widget2Key, "Should contain widget without import name in key")
+		assert.Contains(t, response.Data, widget1Key, "Should contain widget with import name in key")
+		assert.Contains(t, response.Data, widget2Key, "Should contain widget without import name in key")
 
 		// Verify widget1 (with import name)
-		retrievedWidget1 := response[widget1Key]
+		retrievedWidget1 := response.Data[widget1Key]
 		assert.Equal(t, "Widget with Import", retrievedWidget1.Config.Title, "First widget title should match")
 		assert.Equal(t, "ImportedComponent", *retrievedWidget1.ImportName, "Import name should match")
 
 		// Verify widget2 (without import name)
-		retrievedWidget2 := response[widget2Key]
+		retrievedWidget2 := response.Data[widget2Key]
 		assert.Equal(t, "Widget without Import", retrievedWidget2.Config.Title, "Second widget title should match")
 		assert.Nil(t, retrievedWidget2.ImportName, "Import name should be nil")
 	})
@@ -297,14 +301,14 @@ func TestGetWidgetMapping(t *testing.T) {
 
 			assert.Equal(t, http.StatusOK, w.Code, "Should return 200 OK on request %d", i+1)
 
-			var response map[string]api.WidgetModuleFederationMetadata
+			var response api.WidgetMappingResponse
 			err := json.Unmarshal(w.Body.Bytes(), &response)
 			require.NoError(t, err, "Should be able to unmarshal response on request %d", i+1)
 
-			assert.Len(t, response, 1, "Should always return one widget mapping on request %d", i+1)
+			assert.Len(t, response.Data, 1, "Should always return one widget mapping on request %d", i+1)
 
 			widgetKey := widget.GetWidgetKey()
-			retrievedWidget := response[widgetKey]
+			retrievedWidget := response.Data[widgetKey]
 			assert.Equal(t, "Data Integrity Test", retrievedWidget.Config.Title, "Widget title should be consistent on request %d", i+1)
 			assert.Equal(t, 2, *retrievedWidget.Defaults.Width, "Widget width should be consistent on request %d", i+1)
 		}
@@ -357,13 +361,13 @@ func TestGetWidgetMapping(t *testing.T) {
 
 		assert.Equal(t, http.StatusOK, w1.Code, "Should return 200 OK")
 
-		var response1 map[string]api.WidgetModuleFederationMetadata
+		var response1 api.WidgetMappingResponse
 		err := json.Unmarshal(w1.Body.Bytes(), &response1)
 		require.NoError(t, err, "Should be able to unmarshal first response")
 
-		assert.Len(t, response1, 1, "Should have one widget")
+		assert.Len(t, response1.Data, 1, "Should have one widget")
 		widgetKey := widget1.GetWidgetKey()
-		retrievedWidget1 := response1[widgetKey]
+		retrievedWidget1 := response1.Data[widgetKey]
 		assert.Equal(t, "Original Widget", retrievedWidget1.Config.Title, "Should have original widget")
 
 		// Add second widget with same key (overwrites first)
@@ -376,12 +380,12 @@ func TestGetWidgetMapping(t *testing.T) {
 
 		assert.Equal(t, http.StatusOK, w2.Code, "Should return 200 OK")
 
-		var response2 map[string]api.WidgetModuleFederationMetadata
+		var response2 api.WidgetMappingResponse
 		err = json.Unmarshal(w2.Body.Bytes(), &response2)
 		require.NoError(t, err, "Should be able to unmarshal second response")
 
-		assert.Len(t, response2, 1, "Should still have one widget")
-		retrievedWidget2 := response2[widgetKey]
+		assert.Len(t, response2.Data, 1, "Should still have one widget")
+		retrievedWidget2 := response2.Data[widgetKey]
 		assert.Equal(t, "Overwriting Widget", retrievedWidget2.Config.Title, "Should have overwritten widget")
 		assert.Equal(t, "overwriting-icon", retrievedWidget2.Config.Icon, "Should have overwritten icon")
 		assert.Equal(t, 3, *retrievedWidget2.Defaults.Width, "Should have overwritten width")

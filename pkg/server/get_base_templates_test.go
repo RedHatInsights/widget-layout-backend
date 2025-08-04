@@ -28,10 +28,11 @@ func TestGetBaseWidgetDashboardTemplates(t *testing.T) {
 		assert.Equal(t, http.StatusOK, w.Code, "Expected status code 200")
 		assert.Equal(t, "application/json", w.Header().Get("Content-Type"), "Content-Type should be application/json")
 
-		var templates []api.BaseWidgetDashboardTemplate
-		err := json.NewDecoder(w.Body).Decode(&templates)
-		require.NoError(t, err, "Should be able to decode response as array")
-		assert.Empty(t, templates, "Should return empty array when no templates exist")
+		var response api.BaseWidgetDashboardTemplateListResponse
+		err := json.NewDecoder(w.Body).Decode(&response)
+		require.NoError(t, err, "Should be able to decode response as list response")
+		assert.Empty(t, response.Data, "Should return empty array when no templates exist")
+		assert.Equal(t, 0, response.Meta.Count, "Meta count should be 0")
 	})
 
 	t.Run("should return array of base templates", func(t *testing.T) {
@@ -73,14 +74,15 @@ func TestGetBaseWidgetDashboardTemplates(t *testing.T) {
 		assert.Equal(t, http.StatusOK, w.Code, "Expected status code 200")
 		assert.Equal(t, "application/json", w.Header().Get("Content-Type"), "Content-Type should be application/json")
 
-		var templates []api.BaseWidgetDashboardTemplate
-		err := json.NewDecoder(w.Body).Decode(&templates)
-		require.NoError(t, err, "Should be able to decode response as array")
-		assert.Len(t, templates, 2, "Should return array with 2 templates")
+		var response api.BaseWidgetDashboardTemplateListResponse
+		err := json.NewDecoder(w.Body).Decode(&response)
+		require.NoError(t, err, "Should be able to decode response as list response")
+		assert.Len(t, response.Data, 2, "Should return array with 2 templates")
+		assert.Equal(t, 2, response.Meta.Count, "Meta count should be 2")
 
 		// Verify both templates are present (order doesn't matter in map iteration)
 		templateNames := make(map[string]string)
-		for _, template := range templates {
+		for _, template := range response.Data {
 			templateNames[template.Name] = template.DisplayName
 		}
 

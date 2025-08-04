@@ -24,10 +24,11 @@ func NewServer(r chi.Router, middlewares ...func(next http.Handler) http.Handler
 }
 
 // (GET /)
-func (Server) GetWidgetLayout(w http.ResponseWriter, r *http.Request) {
+func (Server) GetWidgetLayout(w http.ResponseWriter, r *http.Request, params api.GetWidgetLayoutParams) {
 	w.Header().Set("Content-Type", "application/json")
 	id := middlewares.GetUserIdentity(r.Context())
-	resp, status, err := service.GetUserTemplates(id)
+
+	resp, status, err := service.GetUserTemplates(id, params)
 	if err != nil {
 		logrus.Errorf("Failed to get dashboard templates: %v", err)
 		w.WriteHeader(status)
@@ -40,8 +41,17 @@ func (Server) GetWidgetLayout(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.WriteHeader(http.StatusOK)
-	_ = json.NewEncoder(w).Encode(resp)
+	// Create the new list response format
+	listResponse := api.DashboardTemplateListResponse{
+		Data: resp,
+		Meta: api.ListResponseMeta{
+			Count: len(resp),
+		},
+	}
+
+	// Use the status returned by the service (could be 200 or 404 when auto-creating)
+	w.WriteHeader(status)
+	_ = json.NewEncoder(w).Encode(listResponse)
 }
 
 // (GET /{dashboardTemplateId})
@@ -206,8 +216,16 @@ func (Server) GetBaseWidgetDashboardTemplates(w http.ResponseWriter, r *http.Req
 		templates = append(templates, template)
 	}
 
+	// Create the new list response format
+	listResponse := api.BaseWidgetDashboardTemplateListResponse{
+		Data: templates,
+		Meta: api.ListResponseMeta{
+			Count: len(templates),
+		},
+	}
+
 	w.WriteHeader(http.StatusOK)
-	err := json.NewEncoder(w).Encode(templates)
+	err := json.NewEncoder(w).Encode(listResponse)
 	if err != nil {
 		logrus.Errorf("Failed to encode base widget dashboard templates: %v", err)
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
@@ -264,8 +282,11 @@ func (Server) ForkBaseWidgetDashboardTemplateByName(w http.ResponseWriter, r *ht
 func (Server) GetWidgetMapping(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	mappings := service.GetWidgetMappings()
+	resp := api.WidgetMappingResponse{
+		Data: mappings,
+	}
 	w.WriteHeader(http.StatusOK)
-	err := json.NewEncoder(w).Encode(mappings)
+	err := json.NewEncoder(w).Encode(resp)
 	if err != nil {
 		logrus.Errorf("Failed to encode widget mappings: %v", err)
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)

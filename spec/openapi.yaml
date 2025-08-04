@@ -7,13 +7,20 @@ paths:
     get: 
       summary: Get the dashboard templates
       operationId: getWidgetLayout
+      parameters:
+        - name: dashboardType
+          in: query
+          required: false
+          description: The type of dashboard to filter by
+          schema:
+            type: string
       responses:
         '200':
           description: A list of dashboard templates
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/DashboardTemplateList'
+                $ref: '#/components/schemas/DashboardTemplateListResponse'
         '500':
           description: Internal server error
           content:
@@ -253,7 +260,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/BaseWidgetDashboardTemplateList'
+                $ref: '#/components/schemas/BaseWidgetDashboardTemplateListResponse'
         '500':
           description: Internal server error
           content:
@@ -331,8 +338,11 @@ paths:
             application/json:
               schema:
                 type: object
-                additionalProperties:
-                  $ref: '#/components/schemas/WidgetModuleFederationMetadata'
+                properties:
+                  data:
+                    type: object
+                    additionalProperties:
+                      $ref: '#/components/schemas/WidgetModuleFederationMetadata'
         '500':
           description: Internal server error
           content:
@@ -341,6 +351,22 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
 components:
   schemas:
+    Permission:
+      type: object
+      properties:
+        method:
+          type: string
+          description: The method for the permission
+          x-oapi-codegen-extra-tags:
+            yaml: "method"
+        args:
+          type: array
+          items: {}
+          description: The arguments for the method, can be of any type
+          x-oapi-codegen-extra-tags:
+            yaml: "args,omitempty"
+      required:
+        - method
     WidgetItem:
       type: object
       required:
@@ -594,6 +620,27 @@ components:
       type: array
       items:
         $ref: '#/components/schemas/DashboardTemplate'
+    ListResponseMeta:
+      type: object
+      properties:
+        count:
+          type: integer
+          description: The total number of items in the response
+      required:
+        - count
+    DashboardTemplateListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/DashboardTemplate'
+          description: The list of dashboard templates
+        meta:
+          $ref: '#/components/schemas/ListResponseMeta'
+      required:
+        - data
+        - meta
     BaseWidgetDashboardTemplate:
       type: object
       properties:
@@ -619,6 +666,19 @@ components:
       type: array
       items:
         $ref: '#/components/schemas/BaseWidgetDashboardTemplate'
+    BaseWidgetDashboardTemplateListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/BaseWidgetDashboardTemplate'
+          description: The list of base widget dashboard templates
+        meta:
+          $ref: '#/components/schemas/ListResponseMeta'
+      required:
+        - data
+        - meta
     WidgetHeaderLink:
       type: object
       properties:
@@ -644,9 +704,10 @@ components:
           $ref: '#/components/schemas/WidgetHeaderLink'
         permissions:
           type: array
+          x-oapi-codegen-extra-tags:
+            yaml: "permissions,omitempty"
           items:
-          # TODO: Define the permission schema
-            type: string
+            $ref: '#/components/schemas/Permission'
           description: The permissions required to view the widget
       required:
         - title
