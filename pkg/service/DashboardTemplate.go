@@ -41,9 +41,32 @@ func GetTemplateByID(templateID int64, id identity.XRHID) (api.DashboardTemplate
 	return template, http.StatusOK, nil
 }
 
-func GetUserTemplates(id identity.XRHID) ([]api.DashboardTemplate, int, error) {
+func GetUserTemplates(id identity.XRHID, params api.GetWidgetLayoutParams) ([]api.DashboardTemplate, int, error) {
 	var templates []api.DashboardTemplate
-	err := database.DB.Where(api.DashboardTemplate{UserId: id.Identity.User.UserID}).Find(&templates).Error
+	where := api.DashboardTemplate{UserId: id.Identity.User.UserID}
+	if params.DashboardType != nil {
+		where.TemplateBase.Name = *params.DashboardType
+	}
+	query := database.DB.Where(where)
+	res := query.Find(&templates)
+	err := res.Error
+	if err == nil && res.RowsAffected == 0 && params.DashboardType != nil {
+		logrus.Infof("No dashboard templates found for user %s with type %s", id.Identity.User.UserID, *params.DashboardType)
+		newTemplate, status, err := ForkBaseTemplate(*params.DashboardType, id)
+		if err != nil {
+			logrus.Errorf("Failed to create new dashboard template for user %s with type %s: %v", id.Identity.User.UserID, *params.DashboardType, err)
+			return nil, status, err
+		}
+
+		newTemplate, status, err = ChangeDefaultTemplate(int64(newTemplate.ID), id)
+		if err != nil {
+			logrus.Errorf("Failed to set new dashboard template as default for user %s with type %s: %v", id.Identity.User.UserID, *params.DashboardType, err)
+			return nil, status, err
+		}
+
+		return []api.DashboardTemplate{newTemplate}, http.StatusNotFound, nil
+	}
+
 	if _, status, err := handleServiceError(
 		err,
 		fmt.Sprintf("No dashboard templates found for user %s", id.Identity.User.UserID),

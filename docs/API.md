@@ -21,6 +21,26 @@ For detailed instructions on generating and using identity headers, see [docs/DE
 ### Success Response
 All successful responses return the requested data with appropriate HTTP status codes (200, 201, 204).
 
+### List Response Format
+List endpoints return data in a consistent format with metadata:
+
+```json
+{
+  "data": [
+    /* Array of items */
+  ],
+  "meta": {
+    "count": 2
+  }
+}
+```
+
+**Endpoints using list format:**
+- `GET /` - Dashboard templates list
+- `GET /base-templates` - Base templates list
+
+**Note**: The `GET /widget-mapping` endpoint uses a different format with a `data` object containing key-value mappings instead of an array.
+
 ### Error Response
 ```json
 {
@@ -42,48 +62,66 @@ Dashboard templates are user-specific widget layouts that define how widgets are
 #### GET `/`
 Get all dashboard templates for the authenticated user.
 
+**Query Parameters:**
+- `dashboardType` (optional): Filter templates by dashboard type/base template name
+
 **Request:**
 ```bash
+# Get all templates
 curl -X GET \
   'http://localhost:8080/api/widget-layout/v1/' \
+  -H 'x-rh-identity: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...'
+
+# Filter by dashboard type
+curl -X GET \
+  'http://localhost:8080/api/widget-layout/v1/?dashboardType=default-dashboard' \
   -H 'x-rh-identity: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...'
 ```
 
 **Response (200 OK):**
 ```json
-[
-  {
-    "id": 1,
-    "userId": "user-123",
-    "createdAt": "2024-01-01T12:00:00Z",
-    "updatedAt": "2024-01-01T12:00:00Z",
-    "templateConfig": {
-      "sm": [
-        {
-          "w": 2,
-          "h": 2,
-          "x": 0,
-          "y": 0,
-          "i": "widget1",
-          "static": false,
-          "maxH": 4,
-          "minH": 1
-        }
-      ],
-      "md": [...],
-      "lg": [...],
-      "xl": [...]
-    },
-    "templateBase": {
-      "name": "custom-dashboard-template",
-      "displayName": "My Custom Dashboard"
-    },
-    "default": true
+{
+  "data": [
+    {
+      "id": 1,
+      "userId": "user-123",
+      "createdAt": "2024-01-01T12:00:00Z",
+      "updatedAt": "2024-01-01T12:00:00Z",
+      "templateConfig": {
+        "sm": [
+          {
+            "w": 2,
+            "h": 2,
+            "x": 0,
+            "y": 0,
+            "i": "widget1",
+            "static": false,
+            "maxH": 4,
+            "minH": 1
+          }
+        ],
+        "md": [...],
+        "lg": [...],
+        "xl": [...]
+      },
+      "templateBase": {
+        "name": "custom-dashboard-template",
+        "displayName": "My Custom Dashboard"
+      },
+      "default": true
+    }
+  ],
+  "meta": {
+    "count": 1
   }
-]
+}
 ```
 
+**Auto-Creation Behavior:**
+When filtering by `dashboardType`, if the user has no templates of that type but a matching base template exists, the API will automatically create and return a new template for the user with a `404` status code.
+
 **Error Responses:**
+- `404` - No templates found (may include auto-created template in response body)
 - `500` - Internal server error
 
 #### GET `/{dashboardTemplateId}`
@@ -344,29 +382,34 @@ curl -X GET \
 
 **Response (200 OK):**
 ```json
-[
-  {
-    "name": "default-dashboard",
-    "displayName": "Default Dashboard",
-    "templateConfig": {
-      "sm": [
-        {
-          "w": 2,
-          "h": 2,
-          "x": 0,
-          "y": 0,
-          "i": "insights-dashboard-widget",
-          "static": false,
-          "maxH": 4,
-          "minH": 1
-        }
-      ],
-      "md": [...],
-      "lg": [...],
-      "xl": [...]
+{
+  "data": [
+    {
+      "name": "default-dashboard",
+      "displayName": "Default Dashboard",
+      "templateConfig": {
+        "sm": [
+          {
+            "w": 2,
+            "h": 2,
+            "x": 0,
+            "y": 0,
+            "i": "insights-dashboard-widget",
+            "static": false,
+            "maxH": 4,
+            "minH": 1
+          }
+        ],
+        "md": [...],
+        "lg": [...],
+        "xl": [...]
+      }
     }
+  ],
+  "meta": {
+    "count": 1
   }
-]
+}
 ```
 
 **Error Responses:**
@@ -450,6 +493,8 @@ curl -X GET \
 
 Widget mapping provides metadata about available widgets including their configurations, dimensions, and module federation information.
 
+> **📝 Note**: The widget mapping endpoint returns a different format than other list endpoints. It provides a key-value mapping rather than an array with metadata.
+
 #### GET `/widget-mapping`
 Get the mapping of all available widgets.
 
@@ -462,7 +507,8 @@ curl -X GET \
 **Response (200 OK):**
 ```json
 {
-  "insights@dashboard-widget": {
+  "data": {
+    "insights@dashboard-widget": {
     "scope": "insights",
     "module": "dashboard-widget",
     "importName": "DashboardWidget",
@@ -503,6 +549,7 @@ curl -X GET \
       "maxH": 4,
       "minH": 1
     }
+  }
   }
 }
 ```

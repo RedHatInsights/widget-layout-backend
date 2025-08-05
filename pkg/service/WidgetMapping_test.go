@@ -189,8 +189,21 @@ func TestGetWidgetMappings(t *testing.T) {
 	t.Run("should handle widget mapping with permissions", func(t *testing.T) {
 		// Reset registry
 		service.WidgetMappingRegistry = api.WidgetMappingRegistry{}
+		args := []interface{}{"arg1", "arg2", "arg3"}
 
-		permissions := []string{"read:widgets", "write:widgets", "admin:widgets"}
+		permissions := []api.Permission{
+			{
+				Method: "permissions",
+				Args:   &args,
+			},
+			{
+				Method: "view",
+			},
+			{
+				Method: "edit",
+				Args:   &args,
+			},
+		}
 		widget := api.WidgetModuleFederationMetadata{
 			Scope:  "test-scope",
 			Module: "test-module",

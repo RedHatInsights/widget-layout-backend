@@ -247,6 +247,180 @@ func TestForkBaseTemplate(t *testing.T) {
 	})
 }
 
+// Helper function to create a test template with specific base name
+func createTestTemplate(userID, baseName, displayName string) api.DashboardTemplate {
+	template := test_util.MockDashboardTemplateWithSpecificUser(userID)
+	template.TemplateBase.Name = baseName
+	template.TemplateBase.DisplayName = displayName
+	return template
+}
+
+func TestGetUserTemplates(t *testing.T) {
+	t.Run("should filter templates by templateBase.Name when DashboardType is provided", func(t *testing.T) {
+		testUserID := test_util.GetUniqueUserID()
+		testIdentity := test_util.GenerateIdentityStructFromTemplate(
+			xrhidgen.Identity{},
+			xrhidgen.User{UserID: stringPtr(testUserID)},
+			xrhidgen.Entitlements{},
+		)
+
+		// Create templates with different base names
+		template1 := createTestTemplate(testUserID, "dashboard-type-1", "Dashboard Type 1")
+		template2 := createTestTemplate(testUserID, "dashboard-type-2", "Dashboard Type 2")
+		template3 := createTestTemplate(testUserID, "dashboard-type-1", "Dashboard Type 1 Copy")
+
+		// Save templates to database
+		require.NoError(t, database.DB.Create(&template1).Error)
+		require.NoError(t, database.DB.Create(&template2).Error)
+		require.NoError(t, database.DB.Create(&template3).Error)
+
+		// Test filtering by dashboard-type-1
+		params := api.GetWidgetLayoutParams{DashboardType: stringPtr("dashboard-type-1")}
+		templates, status, err := service.GetUserTemplates(testIdentity, params)
+
+		assert.NoError(t, err)
+		assert.Equal(t, http.StatusOK, status)
+		assert.Len(t, templates, 2, "Should return 2 templates with dashboard-type-1")
+		
+		// Verify both returned templates have the correct base name
+		for _, template := range templates {
+			assert.Equal(t, "dashboard-type-1", template.TemplateBase.Name)
+			assert.Equal(t, testUserID, template.UserId)
+		}
+	})
+
+	t.Run("should auto-create template from base when user has none", func(t *testing.T) {
+		testUserID := test_util.GetUniqueUserID()
+		testIdentity := test_util.GenerateIdentityStructFromTemplate(
+			xrhidgen.Identity{},
+			xrhidgen.User{UserID: stringPtr(testUserID)},
+			xrhidgen.Entitlements{},
+		)
+
+		// Reset and add a base template to the registry
+		service.BaseTemplateRegistry = api.BaseWidgetDashboardTemplateRegistry{}
+		baseTemplate := api.BaseWidgetDashboardTemplate{
+			Name:        "auto-create-test",
+			DisplayName: "Auto Create Test",
+			TemplateConfig: api.DashboardTemplateConfig{
+				Sm: datatypes.NewJSONType([]api.WidgetItem{}),
+				Md: datatypes.NewJSONType([]api.WidgetItem{}),
+				Lg: datatypes.NewJSONType([]api.WidgetItem{}),
+				Xl: datatypes.NewJSONType([]api.WidgetItem{}),
+			},
+		}
+		service.BaseTemplateRegistry.AddBase(baseTemplate)
+
+		// Test filtering by a dashboard type that exists as base template but user has no templates
+		params := api.GetWidgetLayoutParams{DashboardType: stringPtr("auto-create-test")}
+		templates, status, err := service.GetUserTemplates(testIdentity, params)
+
+		assert.NoError(t, err, "Should not return error when auto-creating from base template")
+		assert.Equal(t, http.StatusNotFound, status, "Should return 404 status (but with created template)")
+		assert.Len(t, templates, 1, "Should return the newly created template")
+		assert.Equal(t, "auto-create-test", templates[0].TemplateBase.Name)
+		assert.Equal(t, testUserID, templates[0].UserId)
+		assert.True(t, templates[0].Default, "Auto-created template should be set as default")
+
+		// Verify template was actually saved to database
+		var dbTemplate api.DashboardTemplate
+		err = database.DB.Where("user_id = ? AND name = ?", testUserID, "auto-create-test").First(&dbTemplate).Error
+		assert.NoError(t, err, "Auto-created template should be saved in database")
+	})
+
+	t.Run("should return 404 error when filtering by non-existent base template", func(t *testing.T) {
+		testUserID := test_util.GetUniqueUserID()
+		testIdentity := test_util.GenerateIdentityStructFromTemplate(
+			xrhidgen.Identity{},
+			xrhidgen.User{UserID: stringPtr(testUserID)},
+			xrhidgen.Entitlements{},
+		)
+
+		// Create a template with a different base name for this user
+		template := createTestTemplate(testUserID, "existing-dashboard", "Existing Dashboard")
+		require.NoError(t, database.DB.Create(&template).Error)
+
+		// Test filtering by non-existent dashboard type (no base template exists)
+		params := api.GetWidgetLayoutParams{DashboardType: stringPtr("non-existent-dashboard")}
+		templates, status, err := service.GetUserTemplates(testIdentity, params)
+
+		assert.Error(t, err, "Should return error when base template doesn't exist")
+		assert.Equal(t, http.StatusNotFound, status, "Should return 404 when base template not found")
+		assert.Nil(t, templates, "Should return nil templates on error")
+		assert.Contains(t, err.Error(), "base template", "Error should mention base template")
+	})
+
+	t.Run("should return all user templates when DashboardType is not provided", func(t *testing.T) {
+		testUserID := test_util.GetUniqueUserID()
+		testIdentity := test_util.GenerateIdentityStructFromTemplate(
+			xrhidgen.Identity{},
+			xrhidgen.User{UserID: stringPtr(testUserID)},
+			xrhidgen.Entitlements{},
+		)
+
+		// Create multiple templates with different base names
+		templates := []api.DashboardTemplate{
+			createTestTemplate(testUserID, "type-a", "Type A"),
+			createTestTemplate(testUserID, "type-b", "Type B"),
+			createTestTemplate(testUserID, "type-c", "Type C"),
+		}
+
+		// Save templates to database
+		for _, template := range templates {
+			require.NoError(t, database.DB.Create(&template).Error)
+		}
+
+		// Test without filtering (DashboardType is nil)
+		params := api.GetWidgetLayoutParams{DashboardType: nil}
+		result, status, err := service.GetUserTemplates(testIdentity, params)
+
+		assert.NoError(t, err)
+		assert.Equal(t, http.StatusOK, status)
+		assert.Len(t, result, 3, "Should return all 3 templates when no filter is applied")
+		
+		// Verify all templates belong to the test user and extract names
+		names := make([]string, len(result))
+		for i, template := range result {
+			assert.Equal(t, testUserID, template.UserId)
+			names[i] = template.TemplateBase.Name
+		}
+		
+		// Verify we have all expected template names
+		assert.Contains(t, names, "type-a")
+		assert.Contains(t, names, "type-b")
+		assert.Contains(t, names, "type-c")
+	})
+
+	t.Run("should only return templates for the requesting user when filtering", func(t *testing.T) {
+		user1ID := test_util.GetUniqueUserID()
+		user2ID := test_util.GetUniqueUserID()
+		user1Identity := test_util.GenerateIdentityStructFromTemplate(
+			xrhidgen.Identity{},
+			xrhidgen.User{UserID: stringPtr(user1ID)},
+			xrhidgen.Entitlements{},
+		)
+
+		// Create templates for both users with the same base name
+		template1 := createTestTemplate(user1ID, "shared-dashboard-type", "User 1 Dashboard")
+		template2 := createTestTemplate(user2ID, "shared-dashboard-type", "User 2 Dashboard")
+
+		// Save templates to database
+		require.NoError(t, database.DB.Create(&template1).Error)
+		require.NoError(t, database.DB.Create(&template2).Error)
+
+		// Test filtering as user1 - should only get user1's template
+		params := api.GetWidgetLayoutParams{DashboardType: stringPtr("shared-dashboard-type")}
+		templates, status, err := service.GetUserTemplates(user1Identity, params)
+
+		assert.NoError(t, err)
+		assert.Equal(t, http.StatusOK, status)
+		assert.Len(t, templates, 1, "Should return only 1 template for user1")
+		assert.Equal(t, "shared-dashboard-type", templates[0].TemplateBase.Name)
+		assert.Equal(t, user1ID, templates[0].UserId)
+		assert.Equal(t, "User 1 Dashboard", templates[0].TemplateBase.DisplayName)
+	})
+}
+
 // Helper function for creating string pointers
 func stringPtr(s string) *string {
 	return &s
