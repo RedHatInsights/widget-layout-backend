@@ -17,7 +17,7 @@ require (
 	github.com/sirupsen/logrus v1.9.3
 	github.com/stretchr/testify v1.10.0
 	github.com/subpop/xrhidgen v0.2.0
-	gorm.io/datatypes v1.2.5
+	gorm.io/datatypes v1.2.7
 	gorm.io/driver/postgres v1.6.0
 	gorm.io/driver/sqlite v1.4.3
 	gorm.io/gorm v1.30.0
