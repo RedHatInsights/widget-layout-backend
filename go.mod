@@ -19,7 +19,7 @@ require (
 	github.com/subpop/xrhidgen v0.2.0
 	gorm.io/datatypes v1.2.7
 	gorm.io/driver/postgres v1.6.0
-	gorm.io/driver/sqlite v1.4.3
+	gorm.io/driver/sqlite v1.6.0
 	gorm.io/gorm v1.30.0
 )
 
