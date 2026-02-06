@@ -99,3 +99,9 @@ parameters:
 - description: Widget mapping config map name
   name: WIDGET_MAPPING_CONFIGMAP
   value: widget-registry-cfg
+- description: Image tag
+  name: IMAGE_TAG
+  required: true
+- description: Image name
+  name: IMAGE
+  value: quay.io/redhat-services-prod/hcc-platex-services-tenant/widget-layout-backend/widget-layout-backend
