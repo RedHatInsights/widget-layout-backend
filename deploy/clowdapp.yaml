@@ -100,12 +100,6 @@ parameters:
   value: 256Mi
 - name: MIN_REPLICAS
   value: '3'
-- description: Chrome config map name
-  name: FRONTEND_CONTEXT_NAME
-  value: base-widget-dashboard-templates-cfg
-- description: Widget mapping config map name
-  name: WIDGET_MAPPING_CONFIGMAP
-  value: widget-registry-cfg
 - description: Image tag
   name: IMAGE_TAG
   required: true
