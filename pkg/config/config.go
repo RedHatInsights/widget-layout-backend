@@ -79,6 +79,9 @@ func init() {
 			DBSSLRootCert: config.getCert(cfg),
 		}
 		config.DatabaseConfig.DBDNS = fmt.Sprintf("host=%v user=%v password=%v dbname=%v port=%v sslmode=%v", cfg.Database.Hostname, cfg.Database.Username, cfg.Database.Password, cfg.Database.Name, cfg.Database.Port, cfg.Database.SslMode)
+		if config.DatabaseConfig.DBSSLRootCert != "" {
+			config.DatabaseConfig.DBDNS = fmt.Sprintf("%s sslrootcert=%s", config.DatabaseConfig.DBDNS, config.DatabaseConfig.DBSSLRootCert)
+		}
 	} else {
 		config.WebPort = 8000
 		config.MetricsPort = 9000

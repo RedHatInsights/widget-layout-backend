@@ -1,6 +1,8 @@
 package database
 
 import (
+	"time"
+
 	"github.com/RedHatInsights/widget-layout-backend/pkg/config"
 	"github.com/joho/godotenv"
 	"gorm.io/driver/postgres"
@@ -24,5 +26,16 @@ func InitDb() {
 	if err != nil {
 		panic("failed to connect to database: " + err.Error())
 	}
+
+	if !cfg.TestMode {
+		postgresDB, err := db.DB()
+		if err != nil {
+			panic(err)
+		}
+		postgresDB.SetMaxIdleConns(10)
+		postgresDB.SetMaxOpenConns(150)
+		postgresDB.SetConnMaxLifetime(time.Minute * 1)
+	}
+
 	DB = db
 }
