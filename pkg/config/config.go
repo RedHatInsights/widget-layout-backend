@@ -4,20 +4,25 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"time"
 
 	"github.com/joho/godotenv"
 	clowder "github.com/redhatinsights/app-common-go/pkg/api/v1"
+	"github.com/sirupsen/logrus"
 )
 
 type DatabaseConfig struct {
-	DBHost        string
-	DBUser        string
-	DBPassword    string
-	DBPort        int
-	DBName        string
-	DBSSLMode     string
-	DBSSLRootCert string
-	DBDNS         string
+	DBHost          string
+	DBUser          string
+	DBPassword      string
+	DBPort          int
+	DBName          string
+	DBSSLMode       string
+	DBSSLRootCert   string
+	DBDNS           string
+	MaxIdleConns    int
+	MaxOpenConns    int
+	ConnMaxLifetime time.Duration
 }
 
 type WidgetLayoutConfig struct {
@@ -46,6 +51,8 @@ func (c *WidgetLayoutConfig) getCert(cfg *clowder.AppConfig) string {
 			panic(err)
 		}
 		cert = RdsCaLocation
+	} else {
+		logrus.Warn("SSL mode is verify-full but no RDS CA certificate was found")
 	}
 	return cert
 }
@@ -97,6 +104,24 @@ func init() {
 		config.DatabaseConfig.DBSSLMode = "disable"
 		config.DatabaseConfig.DBDNS = fmt.Sprintf("host=%v user=%v password=%v dbname=%v port=%v sslmode=%v", config.DatabaseConfig.DBHost, config.DatabaseConfig.DBUser, config.DatabaseConfig.DBPassword, config.DatabaseConfig.DBName, config.DatabaseConfig.DBPort, config.DatabaseConfig.DBSSLMode)
 	}
+
+	maxIdleConns, _ := strconv.Atoi(os.Getenv("DB_MAX_IDLE_CONNS"))
+	if maxIdleConns == 0 {
+		maxIdleConns = 10
+	}
+	config.DatabaseConfig.MaxIdleConns = maxIdleConns
+
+	maxOpenConns, _ := strconv.Atoi(os.Getenv("DB_MAX_OPEN_CONNS"))
+	if maxOpenConns == 0 {
+		maxOpenConns = 150
+	}
+	config.DatabaseConfig.MaxOpenConns = maxOpenConns
+
+	connMaxLifetimeMinutes, _ := strconv.Atoi(os.Getenv("DB_CONN_MAX_LIFETIME_MINUTES"))
+	if connMaxLifetimeMinutes == 0 {
+		connMaxLifetimeMinutes = 5
+	}
+	config.DatabaseConfig.ConnMaxLifetime = time.Duration(connMaxLifetimeMinutes) * time.Minute
 
 	config.BaseWidgetDashboardTemplates = os.Getenv("BASE_LAYOUTS")
 	config.WidgetMappingConfig = os.Getenv("WIDGET_MAPPING")

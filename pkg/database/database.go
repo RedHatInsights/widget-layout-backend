@@ -1,8 +1,6 @@
 package database
 
 import (
-	"time"
-
 	"github.com/RedHatInsights/widget-layout-backend/pkg/config"
 	"github.com/joho/godotenv"
 	"gorm.io/driver/postgres"
@@ -32,9 +30,9 @@ func InitDb() {
 		if err != nil {
 			panic(err)
 		}
-		postgresDB.SetMaxIdleConns(10)
-		postgresDB.SetMaxOpenConns(150)
-		postgresDB.SetConnMaxLifetime(time.Minute * 1)
+		postgresDB.SetMaxIdleConns(cfg.DatabaseConfig.MaxIdleConns)
+		postgresDB.SetMaxOpenConns(cfg.DatabaseConfig.MaxOpenConns)
+		postgresDB.SetConnMaxLifetime(cfg.DatabaseConfig.ConnMaxLifetime)
 	}
 
 	DB = db
