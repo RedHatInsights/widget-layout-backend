@@ -317,3 +317,37 @@ func (Server) GetWidgetMapping(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 }
+
+func (Server) ImportWidgetLayout(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	var template api.ExportWidgetDashboardTemplateResponse
+	if err := json.NewDecoder(r.Body).Decode(&template); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+	id := middlewares.GetUserIdentity(r.Context())
+	dr, status, err := service.ImportDashboardTemplate(
+		template,
+		id,
+	)
+
+	if err != nil {
+		logrus.Errorf("Failed to import dashboard template: %v", err)
+		w.WriteHeader(status)
+		_ = json.NewEncoder(w).Encode(api.ErrorResponse{Errors: []api.ErrorPayload{
+			{
+				Code:    status,
+				Message: err.Error(),
+			},
+		}})
+		return
+	}
+
+	w.WriteHeader(status)
+	err = json.NewEncoder(w).Encode(dr)
+	if err != nil {
+		logrus.Errorf("Failed to encode response: %v", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+}
