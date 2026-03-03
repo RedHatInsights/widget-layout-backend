@@ -399,17 +399,11 @@ paths:
               $ref: '#/components/schemas/ExportWidgetDashboardTemplateResponse'
       responses:
         '200':
-          description: Dashboard template import successfully
+          description: Dashboard template imported successfully
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/DashboardTemplate'
-        '403':
-          description: Unauthorized access to the dashboard template
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
         '400':
           description: Bad request, possibly due to invalid template data
           content:

@@ -266,6 +266,11 @@ func ImportDashboardTemplate(importData api.ExportWidgetDashboardTemplateRespons
 		UserId:         id.Identity.User.UserID,
 	}
 
+	if err := newTemplate.IsValid(); err != nil {
+		logrus.Errorf("Failed to import dashboard template: %v", err)
+		return api.DashboardTemplate{}, http.StatusBadRequest, err
+	}
+
 	err := database.DB.Create(&newTemplate).Error
 	if err != nil {
 		logrus.Errorf("Failed to import dashboard template: %v", err)
