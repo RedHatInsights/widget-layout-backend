@@ -206,6 +206,30 @@ func (Server) ResetWidgetLayoutById(w http.ResponseWriter, r *http.Request, dash
 	}
 }
 
+func (Server) ExportWidgetLayoutById(w http.ResponseWriter, r *http.Request, dashboardTemplateId int64) {
+	id := middlewares.GetUserIdentity((r.Context()))
+	w.Header().Set("Content-Type", "application/json")
+	resp, status, err := service.ExportWidgetDashboardTemplate(dashboardTemplateId, id)
+	if err != nil {
+		logrus.Errorf("Failed to export dashboard template: %v", err)
+		w.WriteHeader(status)
+		_ = json.NewEncoder(w).Encode(api.ErrorResponse{Errors: []api.ErrorPayload{
+			{
+				Code:    status,
+				Message: err.Error(),
+			},
+		}})
+		return
+	}
+	w.WriteHeader(status)
+	err = json.NewEncoder(w).Encode(resp)
+	if err != nil {
+		logrus.Errorf("Failed to encode response: %v", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+}
+
 func (Server) GetBaseWidgetDashboardTemplates(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	templateMap := service.BaseTemplateRegistry.GetAllBases()

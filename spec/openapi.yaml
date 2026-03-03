@@ -250,6 +250,43 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /{dashboardTemplateId}/export:
+    get:
+      summary: Export user's dashboard
+      operationId: exportWidgetLayoutById
+      parameters:
+        - name: dashboardTemplateId
+          in: path
+          required: true
+          description: The unique identifier of the dashboard template to export
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: The complete dashboard template configuration as JSON
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExportWidgetDashboardTemplateResponse'
+        '403':
+          description: Unauthorized access to export the dashboard template
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Dashboard template not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /base-templates:
     get:
       summary: Get the base widget dashboard templates
@@ -773,6 +810,20 @@ components:
         - module
         - config
         - defaults
+    ExportWidgetDashboardTemplateResponse:
+      type: object
+      properties:
+        templateConfig:
+          allOf:
+            - $ref: '#/components/schemas/DashboardTemplateConfig'
+          description: The configuration of the dashboard template
+        templateBase:
+          allOf:
+            - $ref: '#/components/schemas/DashboardTemplateBase'
+          description: The base information of the dashboard template
+      required:
+        - templateConfig
+        - templateBase
     ErrorPayload:
       type: object
       properties:
