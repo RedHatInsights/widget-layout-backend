@@ -224,6 +224,19 @@ func ResetDashboardTemplate(templateID int64, id identity.XRHID) (api.DashboardT
 	return template, http.StatusOK, nil
 }
 
+func ExportWidgetDashboardTemplate(templateID int64, id identity.XRHID) (api.ExportWidgetDashboardTemplateResponse, int, error) {
+	template, status, err := GetTemplateByID(templateID, id)
+	if err != nil {
+		return api.ExportWidgetDashboardTemplateResponse{}, status, err
+	}
+
+	// Convert to export format
+	return api.ExportWidgetDashboardTemplateResponse{
+		TemplateConfig: template.TemplateConfig,
+		TemplateBase:   template.TemplateBase,
+	}, http.StatusOK, nil
+}
+
 func ForkBaseTemplate(baseTemplateName string, id identity.XRHID) (api.DashboardTemplate, int, error) {
 	baseTemplate, exists := BaseTemplateRegistry.GetBase(baseTemplateName)
 	if !exists {
