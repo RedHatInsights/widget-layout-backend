@@ -24,5 +24,16 @@ func InitDb() {
 	if err != nil {
 		panic("failed to connect to database: " + err.Error())
 	}
+
+	if !cfg.TestMode {
+		postgresDB, err := db.DB()
+		if err != nil {
+			panic(err)
+		}
+		postgresDB.SetMaxIdleConns(cfg.DatabaseConfig.MaxIdleConns)
+		postgresDB.SetMaxOpenConns(cfg.DatabaseConfig.MaxOpenConns)
+		postgresDB.SetConnMaxLifetime(cfg.DatabaseConfig.ConnMaxLifetime)
+	}
+
 	DB = db
 }
