@@ -59,3 +59,4 @@ All project documentation is organized in the `docs/` folder:
 ---
 
 For more details, refer to the documentation files in the [docs/](docs/) directory.
+
