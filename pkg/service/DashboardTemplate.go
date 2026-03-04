@@ -257,3 +257,26 @@ func ForkBaseTemplate(baseTemplateName string, id identity.XRHID) (api.Dashboard
 	logrus.Infof("Successfully forked base template %s to dashboard template with ID %d for user %s", baseTemplateName, newTemplate.ID, id.Identity.User.UserID)
 	return newTemplate, http.StatusOK, nil
 }
+
+func ImportDashboardTemplate(importData api.ExportWidgetDashboardTemplateResponse, id identity.XRHID) (api.DashboardTemplate, int, error) {
+	newTemplate := api.DashboardTemplate{
+		TemplateConfig: importData.TemplateConfig,
+		TemplateBase:   importData.TemplateBase,
+		Default:        false,
+		UserId:         id.Identity.User.UserID,
+	}
+
+	if err := newTemplate.IsValid(); err != nil {
+		logrus.Errorf("Failed to import dashboard template: %v", err)
+		return api.DashboardTemplate{}, http.StatusBadRequest, err
+	}
+
+	err := database.DB.Create(&newTemplate).Error
+	if err != nil {
+		logrus.Errorf("Failed to import dashboard template: %v", err)
+		return api.DashboardTemplate{}, http.StatusInternalServerError, err
+	}
+
+	logrus.Infof("Successfully imported dashboard template with ID %d for user %s", newTemplate.ID, id.Identity.User.UserID)
+	return newTemplate, http.StatusOK, nil
+}
