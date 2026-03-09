@@ -386,6 +386,36 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /import:
+    post:
+      summary: Import dashboard
+      operationId: importWidgetLayout
+      requestBody:
+        required: true
+        description: The dashboard template data to import
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExportWidgetDashboardTemplateResponse'
+      responses:
+        '200':
+          description: Dashboard template imported successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DashboardTemplate'
+        '400':
+          description: Bad request, possibly due to invalid template data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 components:
   schemas:
     Permission:
