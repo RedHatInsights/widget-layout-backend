@@ -61,12 +61,14 @@ objects:
                 configMapKeyRef:
                   name: ${FEO_BASE_LAYOUTS_CONFIGMAP}
                   key: base-widget-dashboard-templates.json
+                  optional: true
             # FEO generated widget mapping config
             - name: WIDGET_MAPPING
               valueFrom:
                 configMapKeyRef:
                   name: ${FEO_WIDGET_MAPPING_CONFIGMAP}
                   key: widget-registry.json
+                  optional: true
             resources:
               limits:
                 cpu: ${CPU_LIMIT_WIDGET_LAYOUT}
