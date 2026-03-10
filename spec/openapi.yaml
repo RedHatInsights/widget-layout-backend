@@ -396,7 +396,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ExportWidgetDashboardTemplateResponse'
+              $ref: '#/components/schemas/ImportWidgetDashboardTemplateRequest'
       responses:
         '200':
           description: Dashboard template imported successfully
@@ -631,6 +631,11 @@ components:
             json: "id"
             gorm: primarykey
           x-go-type: uint
+        dashboardName:
+          type: string
+          description: Name of the dashboard
+          x-oapi-codegen-extra-tags:
+            yaml: "dashboardName"
         createdAt:
           type: string
           format: date-time
@@ -678,6 +683,7 @@ components:
           x-go-type-skip-optional-pointer: true
       required:
         - ID
+        - dashboardName
         - createdAt
         - updatedAt
         - templateConfig
@@ -852,6 +858,26 @@ components:
             - $ref: '#/components/schemas/DashboardTemplateBase'
           description: The base information of the dashboard template
       required:
+        - templateConfig
+        - templateBase
+    ImportWidgetDashboardTemplateRequest:
+      type: object
+      properties:
+        dashboardName:
+          type: string
+          description: Name of the dashboard
+          x-oapi-codegen-extra-tags:
+            yaml: "dashboardName"
+        templateConfig:
+          allOf:
+            - $ref: '#/components/schemas/DashboardTemplateConfig'
+          description: The configuration of the dashboard template
+        templateBase:
+          allOf:
+            - $ref: '#/components/schemas/DashboardTemplateBase'
+          description: The base information of the dashboard template
+      required:
+        - dashboardName
         - templateConfig
         - templateBase
     ErrorPayload:
