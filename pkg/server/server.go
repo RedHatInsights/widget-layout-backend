@@ -320,7 +320,7 @@ func (Server) GetWidgetMapping(w http.ResponseWriter, r *http.Request) {
 
 func (Server) ImportWidgetLayout(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	var template api.ExportWidgetDashboardTemplateResponse
+	var template api.ImportWidgetDashboardTemplateRequest
 	if err := json.NewDecoder(r.Body).Decode(&template); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return

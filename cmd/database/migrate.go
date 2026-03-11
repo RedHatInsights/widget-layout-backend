@@ -33,6 +33,17 @@ func main() {
 		return
 	}
 
+	// Populate dashboardName for existing records that don't have it
+	result := tx.Model(&models.DashboardTemplate{}).
+		Where("dashboard_name = ? OR dashboard_name IS NULL", "").
+		Update("dashboard_name", gorm.Expr("display_name"))
+
+	if result.Error != nil {
+		logrus.Errorln("Failed to populate dashboardName:", result.Error.Error())
+		tx.Rollback()
+		return
+	}
+
 	err := tx.Commit().Error
 	if err != nil {
 		logrus.Errorln("Failed to commit migration transaction:", err.Error())

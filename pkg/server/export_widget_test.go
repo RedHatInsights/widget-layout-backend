@@ -49,6 +49,7 @@ func TestExportWidgetLayoutById(t *testing.T) {
 		testTemplate := api.DashboardTemplate{
 			ID:             templateID,
 			UserId:         testUserID,
+			DashboardName:  "Test",
 			TemplateConfig: testTemplateConfig,
 			TemplateBase:   testTemplateBase,
 		}

@@ -258,10 +258,11 @@ func ForkBaseTemplate(baseTemplateName string, id identity.XRHID) (api.Dashboard
 	return newTemplate, http.StatusOK, nil
 }
 
-func ImportDashboardTemplate(importData api.ExportWidgetDashboardTemplateResponse, id identity.XRHID) (api.DashboardTemplate, int, error) {
+func ImportDashboardTemplate(importData api.ImportWidgetLayoutJSONRequestBody, id identity.XRHID) (api.DashboardTemplate, int, error) {
 	newTemplate := api.DashboardTemplate{
 		TemplateConfig: importData.TemplateConfig,
 		TemplateBase:   importData.TemplateBase,
+		DashboardName:  importData.DashboardName,
 		Default:        false,
 		UserId:         id.Identity.User.UserID,
 	}
