@@ -442,9 +442,6 @@ components:
       - x
       - "y"
       - widgetType
-      - title
-      - maxHeight
-      - minHeight
       properties:
         width:
           type: integer
@@ -466,15 +463,17 @@ components:
           description: The maximum height of the widget in the grid
           minimum: 1
           x-oapi-codegen-extra-tags:
-            yaml: "maxH"
-            json: "maxH"
+            yaml: "maxH,omitempty"
+            json: "maxH,omitempty"
+          x-go-type: "*int"
         minHeight:
           type: integer
           description: The minimum height of the widget in the grid
           minimum: 1
           x-oapi-codegen-extra-tags:
-            yaml: "minH"
-            json: "minH"
+            yaml: "minH,omitempty"
+            json: "minH,omitempty"
+          x-go-type: "*int"
         x:
           type: integer
           description: The x position of the widget in the grid
@@ -502,7 +501,7 @@ components:
           x-oapi-codegen-extra-tags:
             yaml: "static,omitempty"
           x-go-type-skip-optional-pointer: true
-    DashboardTemplateConfig:
+    TemplateConfig:
       type: object
       required:
       - sm
@@ -663,7 +662,7 @@ components:
           x-go-type-skip-optional-pointer: true
         templateConfig:
           allOf:
-            - $ref: '#/components/schemas/DashboardTemplateConfig'
+            - $ref: '#/components/schemas/TemplateConfig'
           x-oapi-codegen-extra-tags:
             yaml: "templateConfig"
             gorm: not null;default null;embedded
@@ -729,7 +728,7 @@ components:
             yaml: "displayName"
         templateConfig:
           allOf:
-            - $ref: '#/components/schemas/DashboardTemplateConfig'
+            - $ref: '#/components/schemas/TemplateConfig'
           description: The configuration of the base widget dashboard template
       required:
         - name
@@ -755,14 +754,14 @@ components:
     WidgetHeaderLink:
       type: object
       properties:
-        name:
+        title:
           type: string
-          description: The name of the widget header link
+          description: The title of the widget header link
         href:
           type: string
           description: The URL of the widget header link
       required:
-        - name
+        - title
         - href
     WidgetConfiguration:
       type: 'object'
@@ -784,7 +783,6 @@ components:
           description: The permissions required to view the widget
       required:
         - title
-        - icon
     WidgetBaseDimensions:
       type: object
       properties:
@@ -851,7 +849,7 @@ components:
       properties:
         templateConfig:
           allOf:
-            - $ref: '#/components/schemas/DashboardTemplateConfig'
+            - $ref: '#/components/schemas/TemplateConfig'
           description: The configuration of the dashboard template
         templateBase:
           allOf:
@@ -870,7 +868,7 @@ components:
             yaml: "dashboardName"
         templateConfig:
           allOf:
-            - $ref: '#/components/schemas/DashboardTemplateConfig'
+            - $ref: '#/components/schemas/TemplateConfig'
           description: The configuration of the dashboard template
         templateBase:
           allOf:
