@@ -22,9 +22,9 @@ func MockDashboardTemplate() api.DashboardTemplate {
 		{
 			Height:     2,
 			Width:      2,
-			Cx:         IntPTR(0),
+			X:         IntPTR(0),
 			WidgetType: "widget1",
-			Cy:         IntPTR(0),
+			Y:         IntPTR(0),
 			Static:     false,
 			MaxHeight:  IntPTR(4),
 			MinHeight:  IntPTR(1),

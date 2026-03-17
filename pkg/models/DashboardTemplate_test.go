@@ -16,9 +16,9 @@ func TestDashboardTemplateModel(t *testing.T) {
 			{
 				Height:     2,
 				Width:      2,
-				Cx:         test_util.IntPTR(0),
+				X:         test_util.IntPTR(0),
 				WidgetType: "widget1",
-				Cy:         test_util.IntPTR(0),
+				Y:         test_util.IntPTR(0),
 				Static:     false,
 				MaxHeight:  test_util.IntPTR(4),
 				MinHeight:  test_util.IntPTR(1),

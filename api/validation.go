@@ -103,13 +103,13 @@ func (tc *DashboardTemplateConfig) IsValid() error {
 		// Validate each widget
 		for idx, widget := range items {
 			// Initialize coordinates if needed
-			if widget.Cx == nil {
+			if widget.X == nil {
 				zero := 0
-				widget.Cx = &zero
+				widget.X = &zero
 			}
-			if widget.Cy == nil {
+			if widget.Y == nil {
 				zero := 0
-				widget.Cy = &zero
+				widget.Y = &zero
 			}
 
 			// Validate the widget
@@ -164,11 +164,11 @@ func (wi *WidgetItem) IsValid(variant GridSizes, index int) error {
 		return fmt.Errorf("widget[%d] in %s: width %d exceeds maximum %d", index, variant, wi.Width, maxWidth)
 	}
 
-	if wi.Cx != nil && (*wi.Cx < minCoordinate || *wi.Cx > maxWidth) {
-		return fmt.Errorf("widget[%d] in %s: x position %d is out of bounds", index, variant, *wi.Cx)
+	if wi.X != nil && (*wi.X < minCoordinate || *wi.X > maxWidth) {
+		return fmt.Errorf("widget[%d] in %s: x position %d is out of bounds", index, variant, *wi.X)
 	}
 
-	if wi.Cy != nil && *wi.Cy < minCoordinate {
+	if wi.Y != nil && *wi.Y < minCoordinate {
 		return fmt.Errorf("widget[%d] in %s: y position cannot be negative", index, variant)
 	}
 

@@ -100,9 +100,9 @@ func TestCopyWidgetLayoutById(t *testing.T) {
 		testWidget := api.WidgetItem{
 			Height:     3,
 			Width:      4,
-			Cx:         test_util.IntPTR(1),
+			X:          test_util.IntPTR(1),
 			WidgetType: "special-widget",
-			Cy:         test_util.IntPTR(2),
+			Y:          test_util.IntPTR(2),
 			Static:     true,
 			MaxHeight:  test_util.IntPTR(6),
 			MinHeight:  test_util.IntPTR(2),
@@ -153,8 +153,8 @@ func TestCopyWidgetLayoutById(t *testing.T) {
 		if len(copiedWidgets) > 0 && len(originalWidgets) > 0 {
 			assert.Equal(t, originalWidgets[0].Height, copiedWidgets[0].Height, "Widget height should match")
 			assert.Equal(t, originalWidgets[0].Width, copiedWidgets[0].Width, "Widget width should match")
-			assert.Equal(t, originalWidgets[0].Cx, copiedWidgets[0].Cx, "Widget X position should match")
-			assert.Equal(t, originalWidgets[0].Cy, copiedWidgets[0].Cy, "Widget Y position should match")
+			assert.Equal(t, originalWidgets[0].X, copiedWidgets[0].X, "Widget X position should match")
+			assert.Equal(t, originalWidgets[0].Y, copiedWidgets[0].Y, "Widget Y position should match")
 			assert.Equal(t, originalWidgets[0].WidgetType, copiedWidgets[0].WidgetType, "Widget type should match")
 			assert.Equal(t, originalWidgets[0].Static, copiedWidgets[0].Static, "Widget static property should match")
 			assert.Equal(t, originalWidgets[0].MaxHeight, copiedWidgets[0].MaxHeight, "Widget max height should match")

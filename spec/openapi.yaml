@@ -439,8 +439,8 @@ components:
       required:
       - width
       - height
-      - cx
-      - cy
+      - x
+      - "y"
       - widgetType
       properties:
         width:
@@ -472,20 +472,20 @@ components:
           x-oapi-codegen-extra-tags:
             yaml: "minH,omitempty"
             json: "minH,omitempty"
-        cx:
+        x:
           type: integer
           description: The x position of the widget in the grid
           minimum: 0
           maximum: 3
           x-oapi-codegen-extra-tags:
-            yaml: "cx"
+            yaml: "x"
           x-go-type: "*int"
-        cy:
+        y:
           type: integer
           description: The y position of the widget in the grid
           minimum: 0
           x-oapi-codegen-extra-tags:
-            yaml: "cy"
+            yaml: "y"
           x-go-type: "*int"
         widgetType:
           type: string
@@ -520,12 +520,12 @@ components:
             required:
             - w
             - h
-            - cx
-            - cy
+            - x
+            - "y"
             - i
             allOf:
             - properties:
-                cx:
+                x:
                   minimum: 0
                   exclusiveMaximum: 1
                 w:
@@ -544,12 +544,12 @@ components:
             required:
             - w
             - h
-            - cx
-            - cy
+            - x
+            - "y"
             - i
             allOf:
             - properties:
-                cx:
+                x:
                   minimum: 0
                   exclusiveMaximum: 2
                 w:
@@ -568,12 +568,12 @@ components:
             required:
             - w
             - h
-            - cx
-            - cy
+            - x
+            - "y"
             - i
             allOf:
             - properties:
-                cx:
+                x:
                   minimum: 0
                   exclusiveMaximum: 3
                 w:
@@ -592,8 +592,8 @@ components:
             required:
             - w
             - h
-            - cx
-            - cy
+            - x
+            - "y"
             - i
     DashboardTemplateBase:
       type: object
