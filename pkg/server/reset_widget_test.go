@@ -27,10 +27,10 @@ func TestResetWidgetLayoutById(t *testing.T) {
 		baseWidget := api.WidgetItem{
 			Width:      2,
 			Height:     3,
-			MaxHeight:  8,
-			MinHeight:  1,
-			X:          intPtr(0),
-			Y:          intPtr(0),
+			MaxHeight:  intPtr(8),
+			MinHeight:  intPtr(1),
+			Cx:         intPtr(0),
+			Cy:         intPtr(0),
 			WidgetType: "base-widget",
 		}
 		baseTemplate := api.BaseWidgetDashboardTemplate{
@@ -52,10 +52,10 @@ func TestResetWidgetLayoutById(t *testing.T) {
 		modifiedWidget := api.WidgetItem{
 			Width:      4,
 			Height:     2,
-			MaxHeight:  6,
-			MinHeight:  1,
-			X:          intPtr(1),
-			Y:          intPtr(1),
+			MaxHeight:  intPtr(6),
+			MinHeight:  intPtr(1),
+			Cx:         intPtr(1),
+			Cy:         intPtr(1),
 			WidgetType: "modified-widget",
 		}
 		testTemplate := api.DashboardTemplate{
@@ -234,19 +234,19 @@ func TestResetWidgetLayoutById(t *testing.T) {
 			{
 				Width:      1,
 				Height:     2,
-				MaxHeight:  5,
-				MinHeight:  1,
-				X:          intPtr(0),
-				Y:          intPtr(0),
+				MaxHeight:  intPtr(5),
+				MinHeight:  intPtr(1),
+				Cx:         intPtr(0),
+				Cy:         intPtr(0),
 				WidgetType: "widget-1",
 			},
 			{
 				Width:      2,
 				Height:     3,
-				MaxHeight:  6,
-				MinHeight:  2,
-				X:          intPtr(1),
-				Y:          intPtr(0),
+				MaxHeight:  intPtr(6),
+				MinHeight:  intPtr(2),
+				Cx:         intPtr(1),
+				Cy:         intPtr(0),
 				WidgetType: "widget-2",
 			},
 		}
@@ -271,10 +271,10 @@ func TestResetWidgetLayoutById(t *testing.T) {
 			{
 				Width:      4,
 				Height:     1,
-				MaxHeight:  3,
-				MinHeight:  1,
-				X:          intPtr(2),
-				Y:          intPtr(1),
+				MaxHeight:  intPtr(3),
+				MinHeight:  intPtr(1),
+				Cx:         intPtr(2),
+				Cy:         intPtr(1),
 				WidgetType: "different-widget",
 			},
 		}

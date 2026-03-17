@@ -23,7 +23,7 @@ func TestWidgetUnmarshaling(t *testing.T) {
 		}
 
 		for _, item := range items {
-			if item.X == nil || item.Y == nil {
+			if item.Cx == nil || item.Cy == nil {
 				t.Error("WidgetItem must have either x/y or cx/cy attributes")
 			}
 		}

@@ -465,7 +465,6 @@ components:
           x-oapi-codegen-extra-tags:
             yaml: "maxH,omitempty"
             json: "maxH,omitempty"
-          x-go-type: "*int"
         minHeight:
           type: integer
           description: The minimum height of the widget in the grid
@@ -473,7 +472,6 @@ components:
           x-oapi-codegen-extra-tags:
             yaml: "minH,omitempty"
             json: "minH,omitempty"
-          x-go-type: "*int"
         cx:
           type: integer
           description: The x position of the widget in the grid

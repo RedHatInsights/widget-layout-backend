@@ -31,7 +31,7 @@ func TestGetWidgetMappings(t *testing.T) {
 			Module: "test-module-1",
 			Config: api.WidgetConfiguration{
 				Title: "Test Widget 1",
-				Icon:  "test-icon-1",
+				Icon:    stringPtr("test-icon-1"),
 			},
 			Defaults: api.WidgetBaseDimensions{
 				Width:     test_util.IntPTR(2),
@@ -46,7 +46,7 @@ func TestGetWidgetMappings(t *testing.T) {
 			Module: "test-module-2",
 			Config: api.WidgetConfiguration{
 				Title: "Test Widget 2",
-				Icon:  "test-icon-2",
+				Icon:    stringPtr("test-icon-2"),
 			},
 			Defaults: api.WidgetBaseDimensions{
 				Width:     test_util.IntPTR(1),
@@ -93,7 +93,7 @@ func TestGetWidgetMappings(t *testing.T) {
 			ImportName: &importName,
 			Config: api.WidgetConfiguration{
 				Title: "Test Widget with Import",
-				Icon:  "test-icon",
+				Icon:    stringPtr("test-icon"),
 			},
 			Defaults: api.WidgetBaseDimensions{
 				Width:     test_util.IntPTR(3),
@@ -129,7 +129,7 @@ func TestGetWidgetMappings(t *testing.T) {
 			FeatureFlag: &featureFlag,
 			Config: api.WidgetConfiguration{
 				Title: "Test Widget with Feature Flag",
-				Icon:  "test-icon",
+				Icon:    stringPtr("test-icon"),
 			},
 			Defaults: api.WidgetBaseDimensions{
 				Width:     test_util.IntPTR(2),
@@ -159,9 +159,9 @@ func TestGetWidgetMappings(t *testing.T) {
 			Module: "test-module",
 			Config: api.WidgetConfiguration{
 				Title: "Test Widget with Header Link",
-				Icon:  "test-icon",
+				Icon:    stringPtr("test-icon"),
 				HeaderLink: &api.WidgetHeaderLink{
-					Name: "View Details",
+					Title: "View Details",
 					Href: "https://example.com/details",
 				},
 			},
@@ -182,7 +182,7 @@ func TestGetWidgetMappings(t *testing.T) {
 		widgetKey := widget.GetWidgetKey()
 		retrievedWidget := mappings[widgetKey]
 		require.NotNil(t, retrievedWidget.Config.HeaderLink, "Widget should have header link")
-		assert.Equal(t, "View Details", retrievedWidget.Config.HeaderLink.Name, "Header link name should match")
+		assert.Equal(t, "View Details", retrievedWidget.Config.HeaderLink.Title, "Header link name should match")
 		assert.Equal(t, "https://example.com/details", retrievedWidget.Config.HeaderLink.Href, "Header link href should match")
 	})
 
@@ -209,7 +209,7 @@ func TestGetWidgetMappings(t *testing.T) {
 			Module: "test-module",
 			Config: api.WidgetConfiguration{
 				Title:       "Test Widget with Permissions",
-				Icon:        "test-icon",
+				Icon:    stringPtr("test-icon"),
 				Permissions: &permissions,
 			},
 			Defaults: api.WidgetBaseDimensions{
@@ -242,7 +242,7 @@ func TestGetWidgetMappings(t *testing.T) {
 			Module: "duplicate-module",
 			Config: api.WidgetConfiguration{
 				Title: "First Widget",
-				Icon:  "first-icon",
+				Icon:    stringPtr("first-icon"),
 			},
 			Defaults: api.WidgetBaseDimensions{
 				Width:     test_util.IntPTR(1),
@@ -258,7 +258,7 @@ func TestGetWidgetMappings(t *testing.T) {
 			Module: "duplicate-module",
 			Config: api.WidgetConfiguration{
 				Title: "Second Widget",
-				Icon:  "second-icon",
+				Icon:    stringPtr("second-icon"),
 			},
 			Defaults: api.WidgetBaseDimensions{
 				Width:     test_util.IntPTR(2),
@@ -280,7 +280,7 @@ func TestGetWidgetMappings(t *testing.T) {
 		widgetKey := widget1.GetWidgetKey()
 		retrievedWidget := mappings[widgetKey]
 		assert.Equal(t, "First Widget", retrievedWidget.Config.Title, "Should have first widget title")
-		assert.Equal(t, "first-icon", retrievedWidget.Config.Icon, "Should have first widget icon")
+		assert.Equal(t, "first-icon", *retrievedWidget.Config.Icon, "Should have first widget icon")
 
 		// Add second widget with same key (should overwrite first)
 		service.WidgetMappingRegistry.AddWidgetMapping(widget2)
@@ -290,7 +290,7 @@ func TestGetWidgetMappings(t *testing.T) {
 		// Verify second widget has overwritten first
 		retrievedWidget = mappings[widgetKey]
 		assert.Equal(t, "Second Widget", retrievedWidget.Config.Title, "Should have second widget title (overwritten)")
-		assert.Equal(t, "second-icon", retrievedWidget.Config.Icon, "Should have second widget icon (overwritten)")
+		assert.Equal(t, "second-icon", *retrievedWidget.Config.Icon, "Should have second widget icon (overwritten)")
 		assert.Equal(t, 2, *retrievedWidget.Defaults.Width, "Should have second widget width (overwritten)")
 		assert.Equal(t, 2, *retrievedWidget.Defaults.Height, "Should have second widget height (overwritten)")
 	})
@@ -305,7 +305,7 @@ func TestGetWidgetMappings(t *testing.T) {
 			Module: "same-module",
 			Config: api.WidgetConfiguration{
 				Title: "Widget Without Import",
-				Icon:  "no-import-icon",
+				Icon:    stringPtr("no-import-icon"),
 			},
 			Defaults: api.WidgetBaseDimensions{
 				Width:     test_util.IntPTR(1),
@@ -323,7 +323,7 @@ func TestGetWidgetMappings(t *testing.T) {
 			ImportName: &importName,
 			Config: api.WidgetConfiguration{
 				Title: "Widget With Import",
-				Icon:  "import-icon",
+				Icon:    stringPtr("import-icon"),
 			},
 			Defaults: api.WidgetBaseDimensions{
 				Width:     test_util.IntPTR(2),

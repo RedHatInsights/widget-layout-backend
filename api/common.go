@@ -43,9 +43,9 @@ func (wi *WidgetItem) UnmarshalJSON(data []byte) error {
 
 	switch {
 	case tmp.X != nil && tmp.Y != nil:
-		wi.X, wi.Y = tmp.X, tmp.Y
+		wi.Cx, wi.Cy = tmp.X, tmp.Y
 	case tmp.CX != nil && tmp.CY != nil:
-		wi.X, wi.Y = tmp.CX, tmp.CY
+		wi.Cx, wi.Cy = tmp.CX, tmp.CY
 	default:
 		return errors.New("WidgetItem must have either x/y or cx/cy attributes")
 	}
