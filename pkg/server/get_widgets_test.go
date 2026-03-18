@@ -27,8 +27,8 @@ func TestGetWidgets(t *testing.T) {
 			WidgetType: "widget1",
 			Y:          test_util.IntPTR(0),
 			Static:     false,
-			MaxHeight:  4,
-			MinHeight:  1,
+			MaxHeight:  test_util.IntPTR(4),
+			MinHeight:  test_util.IntPTR(1),
 		}
 		testWidget2 := api.WidgetItem{
 			Height:     3,
@@ -37,8 +37,8 @@ func TestGetWidgets(t *testing.T) {
 			WidgetType: "widget2",
 			Y:          test_util.IntPTR(0),
 			Static:     false,
-			MaxHeight:  6,
-			MinHeight:  2,
+			MaxHeight:  test_util.IntPTR(6),
+			MinHeight:  test_util.IntPTR(2),
 		}
 
 		tm1 := datatypes.NewJSONType([]api.WidgetItem{testWidget1})

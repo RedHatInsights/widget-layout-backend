@@ -32,8 +32,8 @@ func TestExportWidgetLayoutById(t *testing.T) {
 			WidgetType: "widget1",
 			Y:          test_util.IntPTR(0),
 			Static:     false,
-			MaxHeight:  4,
-			MinHeight:  1,
+			MaxHeight:  test_util.IntPTR(4),
+			MinHeight:  test_util.IntPTR(1),
 		}
 		tm := datatypes.NewJSONType([]api.WidgetItem{testWidget})
 		testTemplateConfig := api.DashboardTemplateConfig{
@@ -93,8 +93,8 @@ func TestExportWidgetLayoutById(t *testing.T) {
 			WidgetType: "widget1",
 			Y:          test_util.IntPTR(0),
 			Static:     false,
-			MaxHeight:  4,
-			MinHeight:  1,
+			MaxHeight:  test_util.IntPTR(4),
+			MinHeight:  test_util.IntPTR(1),
 		}
 		tm := datatypes.NewJSONType([]api.WidgetItem{testWidget})
 		testTemplateConfig := api.DashboardTemplateConfig{
@@ -183,8 +183,8 @@ func TestExportWidgetLayoutById(t *testing.T) {
 					WidgetType: "widget1",
 					Y:          test_util.IntPTR(0),
 					Static:     false,
-					MaxHeight:  4,
-					MinHeight:  1,
+					MaxHeight:  test_util.IntPTR(4),
+					MinHeight:  test_util.IntPTR(1),
 				}}),
 				Md: datatypes.NewJSONType([]api.WidgetItem{}),
 				Sm: datatypes.NewJSONType([]api.WidgetItem{}),

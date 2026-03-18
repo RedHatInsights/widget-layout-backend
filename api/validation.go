@@ -136,32 +136,24 @@ func (wi *WidgetItem) IsValid(variant GridSizes, index int) error {
 		return fmt.Errorf("widget[%d] in %s: height must be at least 1", index, variant)
 	}
 
-	if wi.MaxHeight < minDimension {
+	if wi.MaxHeight != nil && *wi.MaxHeight < minDimension {
 		return fmt.Errorf("widget[%d] in %s: maxHeight must be at least 1", index, variant)
 	}
 
-	if wi.MinHeight < minDimension {
+	if wi.MinHeight != nil && *wi.MinHeight < minDimension {
 		return fmt.Errorf("widget[%d] in %s: minHeight must be at least 1", index, variant)
-
 	}
-	if wi.Height > wi.MaxHeight {
-		return fmt.Errorf("widget[%d] in %s: height %d exceeds maxHeight %d", index, variant, wi.Height, wi.MaxHeight)
+
+	if wi.MaxHeight != nil && wi.Height > *wi.MaxHeight {
+		return fmt.Errorf("widget[%d] in %s: height %d exceeds maxHeight %d", index, variant, wi.Height, *wi.MaxHeight)
 	}
 
 	if wi.Width < minDimension {
 		return fmt.Errorf("widget[%d] in %s: width must be at least 1", index, variant)
 	}
 
-	if wi.Height < minDimension {
-		return fmt.Errorf("widget[%d] in %s: height must be at least 1", index, variant)
-	}
-
-	if wi.Height > wi.MaxHeight {
-		return fmt.Errorf("widget[%d] in %s: height %d exceeds maxHeight %d", index, variant, wi.Height, wi.MaxHeight)
-	}
-
-	if wi.Height < wi.MinHeight {
-		return fmt.Errorf("widget[%d] in %s: height %d is less than minHeight %d", index, variant, wi.Height, wi.MinHeight)
+	if wi.MinHeight != nil && wi.Height < *wi.MinHeight {
+		return fmt.Errorf("widget[%d] in %s: height %d is less than minHeight %d", index, variant, wi.Height, *wi.MinHeight)
 	}
 
 	maxWidth, err := variant.GetMaxWidth()

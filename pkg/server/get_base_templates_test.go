@@ -106,8 +106,8 @@ func TestGetBaseWidgetDashboardTemplateByName(t *testing.T) {
 					{
 						Width:      1,
 						Height:     2,
-						MaxHeight:  5,
-						MinHeight:  1,
+						MaxHeight:  intPtr(5),
+						MinHeight:  intPtr(1),
 						X:          intPtr(0),
 						Y:          intPtr(0),
 						WidgetType: "test-widget",

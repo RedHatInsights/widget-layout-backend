@@ -22,12 +22,12 @@ func MockDashboardTemplate() api.DashboardTemplate {
 		{
 			Height:     2,
 			Width:      2,
-			X:          IntPTR(0),
+			X:         IntPTR(0),
 			WidgetType: "widget1",
-			Y:          IntPTR(0),
+			Y:         IntPTR(0),
 			Static:     false,
-			MaxHeight:  4,
-			MinHeight:  1,
+			MaxHeight:  IntPTR(4),
+			MinHeight:  IntPTR(1),
 		},
 	})
 	// This function generates a mock DashboardTemplate with predefined values.

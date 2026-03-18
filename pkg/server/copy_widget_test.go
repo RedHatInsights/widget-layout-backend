@@ -104,8 +104,8 @@ func TestCopyWidgetLayoutById(t *testing.T) {
 			WidgetType: "special-widget",
 			Y:          test_util.IntPTR(2),
 			Static:     true,
-			MaxHeight:  6,
-			MinHeight:  2,
+			MaxHeight:  test_util.IntPTR(6),
+			MinHeight:  test_util.IntPTR(2),
 		}
 		tm := datatypes.NewJSONType([]api.WidgetItem{testWidget})
 

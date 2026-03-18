@@ -31,8 +31,8 @@ func TestForkBaseWidgetDashboardTemplateByName(t *testing.T) {
 					{
 						Width:      1,
 						Height:     2,
-						MaxHeight:  5,
-						MinHeight:  1,
+						MaxHeight:  test_util.IntPTR(5),
+						MinHeight:  test_util.IntPTR(1),
 						X:          test_util.IntPTR(0),
 						Y:          test_util.IntPTR(0),
 						WidgetType: "fork-widget",
@@ -185,8 +185,8 @@ func TestForkBaseWidgetDashboardTemplateByName(t *testing.T) {
 			{
 				Width:      1,
 				Height:     2,
-				MaxHeight:  5,
-				MinHeight:  1,
+				MaxHeight:  test_util.IntPTR(5),
+				MinHeight:  test_util.IntPTR(1),
 				X:          test_util.IntPTR(0),
 				Y:          test_util.IntPTR(0),
 				WidgetType: "widget-1",
@@ -195,8 +195,8 @@ func TestForkBaseWidgetDashboardTemplateByName(t *testing.T) {
 			{
 				Width:      2,
 				Height:     3,
-				MaxHeight:  6,
-				MinHeight:  2,
+				MaxHeight:  test_util.IntPTR(6),
+				MinHeight:  test_util.IntPTR(2),
 				X:          test_util.IntPTR(1),
 				Y:          test_util.IntPTR(0),
 				WidgetType: "widget-2",
@@ -205,8 +205,8 @@ func TestForkBaseWidgetDashboardTemplateByName(t *testing.T) {
 			{
 				Width:      1,
 				Height:     1,
-				MaxHeight:  4,
-				MinHeight:  1,
+				MaxHeight:  test_util.IntPTR(4),
+				MinHeight:  test_util.IntPTR(1),
 				X:          test_util.IntPTR(0),
 				Y:          test_util.IntPTR(2),
 				WidgetType: "widget-3",
