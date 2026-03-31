@@ -171,7 +171,7 @@ func ChangeDefaultTemplate(templateID int64, id identity.XRHID) (api.DashboardTe
 	// Update all other templates with the same base to unset their default status
 	// Use map update because GORM skips zero-value fields in struct updates,
 	// and false is the zero value for bool.
-	err = tx.Model(&api.DashboardTemplate{}).Where("name = ? AND user_id = ?", template.TemplateBase.Name, id.Identity.User.UserID).Updates(map[string]interface{}{"default": false}).Error
+	err = tx.Model(&api.DashboardTemplate{}).Where("name = ? AND user_id = ? AND id <> ?", template.TemplateBase.Name, id.Identity.User.UserID, template.ID).Updates(map[string]interface{}{"default": false}).Error
 	if err != nil {
 		logrus.Errorf("Failed to unset default dashboard template with ID %d: %v", templateID, err)
 		tx.Rollback()

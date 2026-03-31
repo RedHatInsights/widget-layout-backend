@@ -487,6 +487,37 @@ func TestChangeDefaultTemplate(t *testing.T) {
 		assert.True(t, dbOtherTemplate.Default, "Template with different base name should not be affected")
 	})
 
+	t.Run("should not affect other users with same base name", func(t *testing.T) {
+		user1ID := test_util.GetUniqueUserID()
+		user2ID := test_util.GetUniqueUserID()
+
+		user1Identity := test_util.GenerateIdentityStructFromTemplate(
+			xrhidgen.Identity{},
+			xrhidgen.User{UserID: stringPtr(user1ID)},
+			xrhidgen.Entitlements{},
+		)
+
+		// user2 has a default template with the same base name
+		user2Template := createTestTemplate(user2ID, "shared-base", "Shared Base")
+		user2Template.Default = true
+		require.NoError(t, database.DB.Create(&user2Template).Error)
+
+		// user1 has a non-default template with the same base name
+		user1Template := createTestTemplate(user1ID, "shared-base", "Shared Base")
+		user1Template.Default = false
+		require.NoError(t, database.DB.Create(&user1Template).Error)
+
+		// user1 changes default on same base name
+		_, status, err := service.ChangeDefaultTemplate(int64(user1Template.ID), user1Identity)
+		assert.NoError(t, err)
+		assert.Equal(t, http.StatusOK, status)
+
+		// user2 default should remain unchanged
+		var dbUser2Template api.DashboardTemplate
+		require.NoError(t, database.DB.First(&dbUser2Template, user2Template.ID).Error)
+		assert.True(t, dbUser2Template.Default, "Other user's default template should not be affected")
+	})
+
 	t.Run("should return 404 for non-existent template", func(t *testing.T) {
 		testUserID := test_util.GetUniqueUserID()
 		testIdentity := test_util.GenerateIdentityStructFromTemplate(
