@@ -65,8 +65,8 @@ func TestForkBaseTemplate(t *testing.T) {
 						Height:     2,
 						MaxHeight:  test_util.IntPTR(5),
 						MinHeight:  test_util.IntPTR(1),
-						X:         test_util.IntPTR(0),
-						Y:         test_util.IntPTR(0),
+						X:          test_util.IntPTR(0),
+						Y:          test_util.IntPTR(0),
 						WidgetType: "service-fork-widget",
 					},
 				}),
@@ -189,8 +189,8 @@ func TestForkBaseTemplate(t *testing.T) {
 				Height:     3,
 				MaxHeight:  test_util.IntPTR(6),
 				MinHeight:  test_util.IntPTR(2),
-				X:         test_util.IntPTR(0),
-				Y:         test_util.IntPTR(0),
+				X:          test_util.IntPTR(0),
+				Y:          test_util.IntPTR(0),
 				WidgetType: "complex-widget-1",
 				Static:     true,
 			},
@@ -199,8 +199,8 @@ func TestForkBaseTemplate(t *testing.T) {
 				Height:     4,
 				MaxHeight:  test_util.IntPTR(8),
 				MinHeight:  test_util.IntPTR(1),
-				X:         test_util.IntPTR(2),
-				Y:         test_util.IntPTR(0),
+				X:          test_util.IntPTR(2),
+				Y:          test_util.IntPTR(0),
 				WidgetType: "complex-widget-2",
 				Static:     false,
 			},
@@ -281,7 +281,7 @@ func TestGetUserTemplates(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, http.StatusOK, status)
 		assert.Len(t, templates, 2, "Should return 2 templates with dashboard-type-1")
-		
+
 		// Verify both returned templates have the correct base name
 		for _, template := range templates {
 			assert.Equal(t, "dashboard-type-1", template.TemplateBase.Name)
@@ -377,14 +377,14 @@ func TestGetUserTemplates(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, http.StatusOK, status)
 		assert.Len(t, result, 3, "Should return all 3 templates when no filter is applied")
-		
+
 		// Verify all templates belong to the test user and extract names
 		names := make([]string, len(result))
 		for i, template := range result {
 			assert.Equal(t, testUserID, template.UserId)
 			names[i] = template.TemplateBase.Name
 		}
-		
+
 		// Verify we have all expected template names
 		assert.Contains(t, names, "type-a")
 		assert.Contains(t, names, "type-b")
@@ -418,6 +418,136 @@ func TestGetUserTemplates(t *testing.T) {
 		assert.Equal(t, "shared-dashboard-type", templates[0].TemplateBase.Name)
 		assert.Equal(t, user1ID, templates[0].UserId)
 		assert.Equal(t, "User 1 Dashboard", templates[0].TemplateBase.DisplayName)
+	})
+}
+
+func TestChangeDefaultTemplate(t *testing.T) {
+	t.Run("should unset previous default when setting new default", func(t *testing.T) {
+		testUserID := test_util.GetUniqueUserID()
+		testIdentity := test_util.GenerateIdentityStructFromTemplate(
+			xrhidgen.Identity{},
+			xrhidgen.User{UserID: stringPtr(testUserID)},
+			xrhidgen.Entitlements{},
+		)
+
+		// Create two templates with the same base name
+		templateA := createTestTemplate(testUserID, "default-test", "Default Test")
+		templateA.Default = true
+		templateB := createTestTemplate(testUserID, "default-test", "Default Test")
+		templateB.Default = false
+
+		require.NoError(t, database.DB.Create(&templateA).Error)
+		require.NoError(t, database.DB.Create(&templateB).Error)
+
+		// Set template B as default
+		result, status, err := service.ChangeDefaultTemplate(int64(templateB.ID), testIdentity)
+
+		assert.NoError(t, err)
+		assert.Equal(t, http.StatusOK, status)
+		assert.True(t, result.Default, "Returned template should be default")
+
+		// Verify template A is no longer default
+		var dbTemplateA api.DashboardTemplate
+		require.NoError(t, database.DB.First(&dbTemplateA, templateA.ID).Error)
+		assert.False(t, dbTemplateA.Default, "Previous default template should have Default set to false")
+
+		// Verify template B is now default
+		var dbTemplateB api.DashboardTemplate
+		require.NoError(t, database.DB.First(&dbTemplateB, templateB.ID).Error)
+		assert.True(t, dbTemplateB.Default, "New default template should have Default set to true")
+	})
+
+	t.Run("should not affect templates with different base name", func(t *testing.T) {
+		testUserID := test_util.GetUniqueUserID()
+		testIdentity := test_util.GenerateIdentityStructFromTemplate(
+			xrhidgen.Identity{},
+			xrhidgen.User{UserID: stringPtr(testUserID)},
+			xrhidgen.Entitlements{},
+		)
+
+		// Create a default template with a different base name
+		otherTemplate := createTestTemplate(testUserID, "other-dashboard", "Other Dashboard")
+		otherTemplate.Default = true
+		require.NoError(t, database.DB.Create(&otherTemplate).Error)
+
+		// Create a template to set as default with a different base name
+		targetTemplate := createTestTemplate(testUserID, "target-dashboard", "Target Dashboard")
+		targetTemplate.Default = false
+		require.NoError(t, database.DB.Create(&targetTemplate).Error)
+
+		// Set target as default
+		_, status, err := service.ChangeDefaultTemplate(int64(targetTemplate.ID), testIdentity)
+
+		assert.NoError(t, err)
+		assert.Equal(t, http.StatusOK, status)
+
+		// Verify the other template's default status is unchanged
+		var dbOtherTemplate api.DashboardTemplate
+		require.NoError(t, database.DB.First(&dbOtherTemplate, otherTemplate.ID).Error)
+		assert.True(t, dbOtherTemplate.Default, "Template with different base name should not be affected")
+	})
+
+	t.Run("should not affect other users with same base name", func(t *testing.T) {
+		user1ID := test_util.GetUniqueUserID()
+		user2ID := test_util.GetUniqueUserID()
+
+		user1Identity := test_util.GenerateIdentityStructFromTemplate(
+			xrhidgen.Identity{},
+			xrhidgen.User{UserID: stringPtr(user1ID)},
+			xrhidgen.Entitlements{},
+		)
+
+		// user2 has a default template with the same base name
+		user2Template := createTestTemplate(user2ID, "shared-base", "Shared Base")
+		user2Template.Default = true
+		require.NoError(t, database.DB.Create(&user2Template).Error)
+
+		// user1 has a non-default template with the same base name
+		user1Template := createTestTemplate(user1ID, "shared-base", "Shared Base")
+		user1Template.Default = false
+		require.NoError(t, database.DB.Create(&user1Template).Error)
+
+		// user1 changes default on same base name
+		_, status, err := service.ChangeDefaultTemplate(int64(user1Template.ID), user1Identity)
+		assert.NoError(t, err)
+		assert.Equal(t, http.StatusOK, status)
+
+		// user2 default should remain unchanged
+		var dbUser2Template api.DashboardTemplate
+		require.NoError(t, database.DB.First(&dbUser2Template, user2Template.ID).Error)
+		assert.True(t, dbUser2Template.Default, "Other user's default template should not be affected")
+	})
+
+	t.Run("should return 404 for non-existent template", func(t *testing.T) {
+		testUserID := test_util.GetUniqueUserID()
+		testIdentity := test_util.GenerateIdentityStructFromTemplate(
+			xrhidgen.Identity{},
+			xrhidgen.User{UserID: stringPtr(testUserID)},
+			xrhidgen.Entitlements{},
+		)
+
+		_, status, err := service.ChangeDefaultTemplate(int64(test_util.NonExistentID), testIdentity)
+
+		assert.Error(t, err)
+		assert.Equal(t, http.StatusNotFound, status)
+	})
+
+	t.Run("should return 403 for unauthorized user", func(t *testing.T) {
+		ownerUserID := test_util.GetUniqueUserID()
+		otherUserID := test_util.GetUniqueUserID()
+		otherIdentity := test_util.GenerateIdentityStructFromTemplate(
+			xrhidgen.Identity{},
+			xrhidgen.User{UserID: stringPtr(otherUserID)},
+			xrhidgen.Entitlements{},
+		)
+
+		template := createTestTemplate(ownerUserID, "auth-test", "Auth Test")
+		require.NoError(t, database.DB.Create(&template).Error)
+
+		_, status, err := service.ChangeDefaultTemplate(int64(template.ID), otherIdentity)
+
+		assert.Error(t, err)
+		assert.Equal(t, http.StatusForbidden, status)
 	})
 }
 
