@@ -24,48 +24,48 @@ objects:
                 - /api/widget-layout/v1/openapi.yaml
           podSpec:
             image: ${IMAGE}:${IMAGE_TAG}
-            containers:
-              # MCP Sidecar Container
-              - name: mcp-sidecar
-                image: ${MCP_SIDECAR_IMAGE}:${MCP_SIDECAR_IMAGE_TAG}
-                ports:
-                  - containerPort: 8001
-                    name: mcp
-                    protocol: TCP
-                env:
-                  - name: PORT
-                    value: "8001"
-                  - name: WIDGET_LAYOUT_API_URL
-                    value: "http://localhost:8000"
-                  - name: LOG_LEVEL
-                    value: ${LOG_LEVEL}
-                  - name: NODE_ENV
-                    value: "production"
-                resources:
-                  limits:
-                    cpu: ${CPU_LIMIT_MCP_SIDECAR}
-                    memory: ${MEMORY_LIMIT_MCP_SIDECAR}
-                  requests:
-                    cpu: ${CPU_REQUEST_MCP_SIDECAR}
-                    memory: ${MEMORY_REQUEST_MCP_SIDECAR}
-                livenessProbe:
-                  httpGet:
-                    path: /healthz
-                    port: 8001
-                    scheme: HTTP
-                  initialDelaySeconds: 10
-                  periodSeconds: 10
-                  timeoutSeconds: 3
-                  failureThreshold: 3
-                readinessProbe:
-                  httpGet:
-                    path: /ready
-                    port: 8001
-                    scheme: HTTP
-                  initialDelaySeconds: 5
-                  periodSeconds: 5
-                  timeoutSeconds: 3
-                  failureThreshold: 3
+            # containers:
+            #   # MCP Sidecar Container
+            #   - name: mcp-sidecar
+            #     image: ${MCP_SIDECAR_IMAGE}:${MCP_SIDECAR_IMAGE_TAG}
+            #     ports:
+            #       - containerPort: 8001
+            #         name: mcp
+            #         protocol: TCP
+            #     env:
+            #       - name: PORT
+            #         value: "8001"
+            #       - name: WIDGET_LAYOUT_API_URL
+            #         value: "http://localhost:8000"
+            #       - name: LOG_LEVEL
+            #         value: ${LOG_LEVEL}
+            #       - name: NODE_ENV
+            #         value: "production"
+            #     resources:
+            #       limits:
+            #         cpu: ${CPU_LIMIT_MCP_SIDECAR}
+            #         memory: ${MEMORY_LIMIT_MCP_SIDECAR}
+            #       requests:
+            #         cpu: ${CPU_REQUEST_MCP_SIDECAR}
+            #         memory: ${MEMORY_REQUEST_MCP_SIDECAR}
+            #     livenessProbe:
+            #       httpGet:
+            #         path: /healthz
+            #         port: 8001
+            #         scheme: HTTP
+            #       initialDelaySeconds: 10
+            #       periodSeconds: 10
+            #       timeoutSeconds: 3
+            #       failureThreshold: 3
+            #     readinessProbe:
+            #       httpGet:
+            #         path: /ready
+            #         port: 8001
+            #         scheme: HTTP
+            #       initialDelaySeconds: 5
+            #       periodSeconds: 5
+            #       timeoutSeconds: 3
+            #       failureThreshold: 3
             initContainers:
               - name: run-db-migration
                 command:
