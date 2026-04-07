@@ -126,7 +126,7 @@ func DeleteDashboardTemplate(templateID int64, id identity.XRHID) (int, error) {
 	return http.StatusNoContent, nil
 }
 
-func CopyDashboardTemplate(templateID int64, id identity.XRHID) (api.DashboardTemplate, int, error) {
+func CopyDashboardTemplate(templateID int64, id identity.XRHID, dashboardName *string) (api.DashboardTemplate, int, error) {
 	var dashboardTemplate api.DashboardTemplate
 	err := database.DB.First(&dashboardTemplate, templateID).Error
 	if ret, status, err := handleServiceError(
@@ -143,6 +143,9 @@ func CopyDashboardTemplate(templateID int64, id identity.XRHID) (api.DashboardTe
 		TemplateBase:   dashboardTemplate.TemplateBase,
 		UserId:         id.Identity.User.UserID,
 		TemplateConfig: dashboardTemplate.TemplateConfig,
+	}
+	if dashboardName != nil && *dashboardName != "" {
+		newTemplate.DashboardName = *dashboardName
 	}
 	err = database.DB.Create(&newTemplate).Error
 	if err != nil {
