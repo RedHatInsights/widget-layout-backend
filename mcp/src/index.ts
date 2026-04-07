@@ -33,7 +33,7 @@ app.use((err: Error, _req: Request, res: Response, next: NextFunction): void => 
 
 // Request ID middleware
 app.use((req: Request, res: Response, next: NextFunction) => {
-  const reqId = req.headers['x-request-id'] || `req-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  const reqId = req.headers['x-request-id'] || `req-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
   res.locals.reqId = reqId;
   next();
 });
