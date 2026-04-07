@@ -175,7 +175,10 @@ export class McpServer {
         identity = parseIdentity(identityHeader);
       } catch (error) {
         // If identity parsing fails, we'll pass null and let the tool handle it
-        logger.debug('mcp: Failed to parse identity, proceeding with null identity');
+        logger.warn(
+          { error: error instanceof Error ? error.message : 'Unknown error' },
+          'mcp: Failed to parse identity, proceeding with null identity'
+        );
       }
     }
 

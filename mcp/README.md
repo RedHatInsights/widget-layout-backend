@@ -290,13 +290,13 @@ All logs are structured JSON (in production) or pretty-printed (in development) 
 
 Logs use the `mcp:` prefix for easy filtering:
 
-```
+```json
 {"level":"info","time":1234567890,"service":"mcp-sidecar","msg":"mcp: tool call completed","tool":"get_widget_layouts","duration":0.234,"org_id":"12345"}
 ```
 
 ## Project Structure
 
-```
+```text
 mcp/
 ├── src/
 │   ├── types/           # TypeScript type definitions

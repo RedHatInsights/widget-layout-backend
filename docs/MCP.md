@@ -14,7 +14,7 @@ The Model Context Protocol (MCP) is an open protocol that standardizes how AI ap
 
 The widget-layout-backend uses a **sidecar container pattern** for MCP integration:
 
-```
+```text
 ┌─────────────────────────────────────────────────┐
 │  Pod: widget-layout-backend                     │
 │                                                  │
@@ -52,7 +52,7 @@ All tools are **read-only** by design to minimize risk.
 
 ### Endpoint
 
-**POST** `/_private/mcp/`
+**POST** `/_private/mcp`
 
 ### Protocol
 

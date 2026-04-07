@@ -67,7 +67,7 @@ app.get('/healthz', (_req: Request, res: Response) => {
 
 // Readiness check endpoint
 app.get('/ready', (_req: Request, res: Response) => {
-  const ready = mcpServer.isInitialized() || true; // Ready even before first init
+  const ready = mcpServer.isInitialized();
   res.status(ready ? 200 : 503).json({
     status: ready ? 'ready' : 'not ready',
     timestamp: new Date().toISOString(),
@@ -195,16 +195,17 @@ const server = app.listen(config.port, () => {
 const gracefulShutdown = (signal: string) => {
   logger.info({ signal }, 'Received shutdown signal');
 
-  server.close(() => {
-    logger.info('Server closed');
-    process.exit(0);
-  });
-
   // Force shutdown after 10 seconds
-  setTimeout(() => {
+  const forceTimeout = setTimeout(() => {
     logger.error('Forced shutdown after timeout');
     process.exit(1);
   }, 10000);
+
+  server.close(() => {
+    clearTimeout(forceTimeout);
+    logger.info('Server closed');
+    process.exit(0);
+  });
 };
 
 process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
