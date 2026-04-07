@@ -15,9 +15,8 @@ toolRegistry.register({
     type: 'object',
     properties: {
       dashboard_template_id: {
-        type: 'integer',
-        description: 'The unique identifier of the dashboard template to export',
-        minimum: 1,
+        type: 'number',
+        description: 'The unique identifier of the dashboard template to export (positive integer)',
       },
     },
     required: ['dashboard_template_id'],

@@ -9,6 +9,9 @@ const config = loadConfig();
 const app = express();
 const mcpServer = new McpServer();
 
+// Boot readiness flag - set to true after server starts listening
+let serverBootReady = false;
+
 // Middleware
 app.use(express.json());
 
@@ -67,9 +70,8 @@ app.get('/healthz', (_req: Request, res: Response) => {
 
 // Readiness check endpoint
 app.get('/ready', (_req: Request, res: Response) => {
-  const ready = mcpServer.isInitialized();
-  res.status(ready ? 200 : 503).json({
-    status: ready ? 'ready' : 'not ready',
+  res.status(serverBootReady ? 200 : 503).json({
+    status: serverBootReady ? 'ready' : 'not ready',
     timestamp: new Date().toISOString(),
   });
 });
@@ -128,13 +130,42 @@ app.post('/_private/mcp', async (req: Request, res: Response): Promise<void> => 
       return;
     }
 
-    if (!request.method) {
+    // Validate method is a non-empty string
+    if (!request.method || typeof request.method !== 'string' || request.method.trim() === '') {
       res.status(400).json({
         jsonrpc: '2.0',
         id: request.id ?? null,
         error: {
           code: -32600,
-          message: 'Invalid Request: method is required',
+          message: 'Invalid Request: method must be a non-empty string',
+        },
+      });
+      return;
+    }
+
+    // Validate id is number, string, or null (not objects/arrays)
+    if (request.id !== undefined && request.id !== null &&
+        typeof request.id !== 'string' && typeof request.id !== 'number') {
+      res.status(400).json({
+        jsonrpc: '2.0',
+        id: null,
+        error: {
+          code: -32600,
+          message: 'Invalid Request: id must be a string, number, or null',
+        },
+      });
+      return;
+    }
+
+    // Validate params is object or array (not primitives or null)
+    if (request.params !== undefined &&
+        (request.params === null || typeof request.params !== 'object')) {
+      res.status(400).json({
+        jsonrpc: '2.0',
+        id: request.id ?? null,
+        error: {
+          code: -32600,
+          message: 'Invalid Request: params must be an object or array',
         },
       });
       return;
@@ -181,6 +212,7 @@ app.use((err: Error, _req: Request, res: Response, _next: NextFunction): void =>
 
 // Start server
 const server = app.listen(config.port, () => {
+  serverBootReady = true;
   logger.info(
     {
       port: config.port,
