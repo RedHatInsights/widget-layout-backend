@@ -13,6 +13,19 @@ import { parseIdentity } from './utils/identity';
 import { toolRegistry } from './tools/index';
 import { logger } from './utils/logger';
 
+// Type guards for request params validation
+function isInitializeParams(params: unknown): params is InitializeParams {
+  if (!params || typeof params !== 'object') return false;
+  const p = params as Record<string, unknown>;
+  return typeof p.protocolVersion === 'string';
+}
+
+function isToolsCallParams(params: unknown): params is ToolsCallParams {
+  if (!params || typeof params !== 'object') return false;
+  const p = params as Record<string, unknown>;
+  return typeof p.name === 'string';
+}
+
 // Import all tools to register them
 import './tools/hello';
 import './tools/get-layouts';
@@ -46,7 +59,14 @@ export class McpServer {
 
       switch (request.method) {
         case 'initialize':
-          result = await this.handleInitialize(request.params as unknown as InitializeParams);
+          if (!isInitializeParams(request.params)) {
+            return this.createErrorResponse(
+              request.id ?? null,
+              JsonRpcErrorCode.InvalidParams,
+              'Invalid initialize params: protocolVersion is required'
+            );
+          }
+          result = await this.handleInitialize(request.params);
           break;
 
         case 'tools/list':
@@ -54,8 +74,15 @@ export class McpServer {
           break;
 
         case 'tools/call':
+          if (!isToolsCallParams(request.params)) {
+            return this.createErrorResponse(
+              request.id ?? null,
+              JsonRpcErrorCode.InvalidParams,
+              'Invalid tools/call params: name is required'
+            );
+          }
           result = await this.handleToolsCall(
-            request.params as unknown as ToolsCallParams,
+            request.params,
             identityHeader
           );
           break;
@@ -152,7 +179,8 @@ export class McpServer {
       }
     }
 
-    return await toolRegistry.execute(params.name, params.arguments || {}, identity);
+    const args = params.arguments && typeof params.arguments === 'object' ? params.arguments : {};
+    return await toolRegistry.execute(params.name, args, identity);
   }
 
   private createErrorResponse(

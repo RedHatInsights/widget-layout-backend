@@ -5,6 +5,13 @@ import { mcpApiCallDuration } from './metrics';
 
 const config = loadConfig();
 
+// Normalize URL path to prevent metric cardinality explosion
+// Replaces numeric/UUID segments with placeholders
+function normalizeEndpoint(url: string): string {
+  const path = url.split('?')[0];
+  return path.replace(/\/\d+/g, '/:id').replace(/\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi, '/:uuid');
+}
+
 export class ApiClient {
   private client: AxiosInstance;
 
@@ -54,7 +61,6 @@ export class ApiClient {
             status: error.response?.status,
             url: error.config?.url,
             message: error.message,
-            data: error.response?.data,
           },
           'mcp: API response error'
         );
@@ -65,7 +71,7 @@ export class ApiClient {
 
   async get<T>(url: string, config?: AxiosRequestConfig): Promise<T> {
     const startTime = Date.now();
-    const endpoint = url.split('?')[0];
+    const endpoint = normalizeEndpoint(url);
 
     try {
       const response = await this.client.get<T>(url, config);
@@ -88,7 +94,7 @@ export class ApiClient {
 
   async post<T>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<T> {
     const startTime = Date.now();
-    const endpoint = url.split('?')[0];
+    const endpoint = normalizeEndpoint(url);
 
     try {
       const response = await this.client.post<T>(url, data, config);

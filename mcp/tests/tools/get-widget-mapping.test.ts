@@ -24,7 +24,7 @@ describe('get_widget_mapping tool', () => {
       },
     };
 
-    nock('http://localhost:8000')
+    const scope = nock('http://localhost:8000')
       .get('/api/widget-layout/v1/widget-mapping')
       .reply(200, mockResponse);
 
@@ -36,6 +36,7 @@ describe('get_widget_mapping tool', () => {
     const data = JSON.parse(result.content[0].text);
     expect(data.data).toHaveProperty('widget-1');
     expect(data.data['widget-1'].scope).toBe('scope1');
+    expect(scope.isDone()).toBe(true);
   });
 
   it('should handle API errors', async () => {

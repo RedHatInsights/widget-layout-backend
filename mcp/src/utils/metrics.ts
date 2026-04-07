@@ -35,5 +35,5 @@ export function getMetrics(): Promise<string> {
 }
 
 export function clearMetrics(): void {
-  register.clear();
+  register.resetMetrics();
 }

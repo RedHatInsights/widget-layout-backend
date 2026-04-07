@@ -12,6 +12,22 @@ const mcpServer = new McpServer();
 // Middleware
 app.use(express.json());
 
+// JSON parse error handler - must come right after express.json()
+app.use((err: Error, _req: Request, res: Response, next: NextFunction): void => {
+  if (err instanceof SyntaxError && 'body' in err) {
+    res.status(400).json({
+      jsonrpc: '2.0',
+      id: null,
+      error: {
+        code: -32700,
+        message: `Parse error: ${err.message}`,
+      },
+    });
+    return;
+  }
+  next(err);
+});
+
 // Request ID middleware
 app.use((req: Request, res: Response, next: NextFunction) => {
   const reqId = req.headers['x-request-id'] || `req-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
@@ -73,6 +89,19 @@ app.get('/metrics', async (_req: Request, res: Response) => {
 // MCP endpoint
 app.post('/_private/mcp', async (req: Request, res: Response): Promise<void> => {
   try {
+    // Validate that body is an object
+    if (!req.body || typeof req.body !== 'object' || Array.isArray(req.body)) {
+      res.status(400).json({
+        jsonrpc: '2.0',
+        id: null,
+        error: {
+          code: -32600,
+          message: 'Invalid Request: body must be a JSON-RPC object',
+        },
+      });
+      return;
+    }
+
     const request = req.body as JsonRpcRequest;
     const identityHeader = req.headers['x-rh-identity'] as string | undefined;
 

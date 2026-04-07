@@ -1,4 +1,4 @@
-.PHONY: build dev generate test infra migrate-db help build-mcp dev-mcp test-mcp lint-mcp
+.PHONY: build dev generate test infra migrate-db help build-mcp dev-mcp test-mcp lint-mcp generate-identity
 
 help:
 	@echo "Available commands:"

@@ -8,7 +8,7 @@ This sidecar container runs alongside the main `widget-layout-backend` Go applic
 
 ## Architecture
 
-```
+```text
 ┌─────────────────────────────────────────────────┐
 │  Pod: widget-layout-backend                     │
 │                                                  │
@@ -130,7 +130,7 @@ Export a dashboard template as a shareable configuration.
 ### Setup
 
 ```bash
-cd mcp-sidecar
+cd mcp
 npm install
 ```
 
@@ -142,7 +142,7 @@ npm run dev
 
 Or from the root directory:
 ```bash
-make dev-mcp-sidecar
+make dev-mcp
 ```
 
 ### Environment Variables
@@ -160,7 +160,7 @@ npm test
 
 Or from the root directory:
 ```bash
-make test-mcp-sidecar
+make test-mcp
 ```
 
 For coverage:
@@ -177,7 +177,7 @@ npm run lint:fix
 
 Or from the root directory:
 ```bash
-make lint-mcp-sidecar
+make lint-mcp
 ```
 
 ## Building
@@ -190,7 +190,7 @@ docker build -t widget-layout-mcp-sidecar:latest .
 
 Or from the root directory:
 ```bash
-make build-mcp-sidecar
+make build-mcp
 ```
 
 ### Local Build
@@ -297,7 +297,7 @@ Logs use the `mcp:` prefix for easy filtering:
 ## Project Structure
 
 ```
-mcp-sidecar/
+mcp/
 ├── src/
 │   ├── types/           # TypeScript type definitions
 │   │   ├── mcp.ts       # MCP protocol types

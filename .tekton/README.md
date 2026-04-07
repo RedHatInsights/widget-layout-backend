@@ -11,8 +11,8 @@ This directory contains Konflux CI/CD pipelines for building and testing the wid
 
 ### MCP Sidecar (TypeScript)
 
-- **mcp-sidecar-push.yaml** - Builds and pushes the MCP sidecar on master branch
-- **mcp-sidecar-pull-request.yaml** - PR validation for MCP sidecar with linting and testing
+- **_mcp-sidecar-push.yaml.draft** - DRAFT (not currently enabled) - Builds and pushes the MCP sidecar on master branch
+- **_mcp-sidecar-pull-request.yaml.draft** - DRAFT (not currently enabled) - PR validation for MCP sidecar with linting and testing
 
 ## MCP Sidecar Pipeline Details
 

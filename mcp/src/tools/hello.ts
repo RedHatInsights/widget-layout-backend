@@ -1,4 +1,6 @@
 import { toolRegistry } from './index';
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const { version } = require('../../package.json');
 
 toolRegistry.register({
   name: 'hello',
@@ -13,7 +15,7 @@ toolRegistry.register({
       message: 'Hello from Widget Layout MCP Sidecar!',
       status: 'healthy',
       timestamp: new Date().toISOString(),
-      version: '1.0.0',
+      version: process.env.MCP_VERSION || version || 'unknown',
     };
   },
 });

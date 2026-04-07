@@ -30,7 +30,7 @@ The widget-layout-backend uses a **sidecar container pattern** for MCP integrati
 
 - The main application is written in Go, while MCP SDK is available in TypeScript/Python
 - Separates concerns: business logic in Go, MCP protocol handling in TypeScript
-- Allows independent scaling and updates
+- Allows independent updates and separation of concerns (note: sidecar and main container share pod lifecycle)
 - TypeScript provides excellent type safety and smaller container images than Python
 
 ## Available Tools
