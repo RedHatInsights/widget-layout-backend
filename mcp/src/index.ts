@@ -223,6 +223,20 @@ const server = app.listen(config.port, () => {
   );
 });
 
+// Handle server listen errors
+server.on('error', (err: Error) => {
+  logger.error(
+    {
+      error: err,
+      port: config.port,
+      nodeEnv: config.nodeEnv,
+    },
+    'Failed to start MCP Sidecar server'
+  );
+  serverBootReady = false;
+  process.exit(1);
+});
+
 // Graceful shutdown
 const gracefulShutdown = (signal: string) => {
   logger.info({ signal }, 'Received shutdown signal');
