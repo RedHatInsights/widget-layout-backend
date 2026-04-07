@@ -1,0 +1,184 @@
+import express, { Request, Response, NextFunction } from 'express';
+import { loadConfig } from './config';
+import { logger } from './utils/logger';
+import { getMetrics } from './utils/metrics';
+import { McpServer } from './server';
+import { JsonRpcRequest } from './types/mcp';
+
+const config = loadConfig();
+const app = express();
+const mcpServer = new McpServer();
+
+// Middleware
+app.use(express.json());
+
+// Request ID middleware
+app.use((req: Request, res: Response, next: NextFunction) => {
+  const reqId = req.headers['x-request-id'] || `req-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  res.locals.reqId = reqId;
+  next();
+});
+
+// Request logging middleware
+app.use((req: Request, res: Response, next: NextFunction) => {
+  const start = Date.now();
+
+  res.on('finish', () => {
+    const duration = Date.now() - start;
+    logger.info(
+      {
+        method: req.method,
+        path: req.path,
+        status: res.statusCode,
+        duration,
+        req_id: res.locals.reqId,
+      },
+      'HTTP request'
+    );
+  });
+
+  next();
+});
+
+// Health check endpoint
+app.get('/healthz', (_req: Request, res: Response) => {
+  res.status(200).json({
+    status: 'healthy',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+  });
+});
+
+// Readiness check endpoint
+app.get('/ready', (_req: Request, res: Response) => {
+  const ready = mcpServer.isInitialized() || true; // Ready even before first init
+  res.status(ready ? 200 : 503).json({
+    status: ready ? 'ready' : 'not ready',
+    timestamp: new Date().toISOString(),
+  });
+});
+
+// Prometheus metrics endpoint
+app.get('/metrics', async (_req: Request, res: Response) => {
+  try {
+    const metrics = await getMetrics();
+    res.set('Content-Type', 'text/plain');
+    res.send(metrics);
+  } catch (error) {
+    logger.error({ error }, 'Failed to get metrics');
+    res.status(500).json({ error: 'Failed to get metrics' });
+  }
+});
+
+// MCP endpoint
+app.post('/_private/mcp', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const request = req.body as JsonRpcRequest;
+    const identityHeader = req.headers['x-rh-identity'] as string | undefined;
+
+    logger.debug(
+      {
+        method: request.method,
+        id: request.id,
+        hasIdentity: !!identityHeader,
+        req_id: res.locals.reqId,
+      },
+      'mcp: Received MCP request'
+    );
+
+    // Validate JSON-RPC request
+    if (!request.jsonrpc || request.jsonrpc !== '2.0') {
+      res.status(400).json({
+        jsonrpc: '2.0',
+        id: request.id ?? null,
+        error: {
+          code: -32600,
+          message: 'Invalid Request: jsonrpc must be "2.0"',
+        },
+      });
+      return;
+    }
+
+    if (!request.method) {
+      res.status(400).json({
+        jsonrpc: '2.0',
+        id: request.id ?? null,
+        error: {
+          code: -32600,
+          message: 'Invalid Request: method is required',
+        },
+      });
+      return;
+    }
+
+    const response = await mcpServer.handleRequest(request, identityHeader);
+    res.json(response);
+  } catch (error) {
+    logger.error(
+      {
+        error,
+        req_id: res.locals.reqId,
+      },
+      'mcp: Unhandled error in MCP endpoint'
+    );
+
+    res.status(500).json({
+      jsonrpc: '2.0',
+      id: null,
+      error: {
+        code: -32603,
+        message: 'Internal server error',
+      },
+    });
+  }
+});
+
+// 404 handler
+app.use((_req: Request, res: Response) => {
+  res.status(404).json({
+    error: 'Not Found',
+    message: 'The requested endpoint does not exist',
+  });
+});
+
+// Error handler
+app.use((err: Error, _req: Request, res: Response, _next: NextFunction): void => {
+  logger.error({ error: err }, 'Unhandled error');
+  res.status(500).json({
+    error: 'Internal Server Error',
+    message: config.nodeEnv === 'development' ? err.message : 'An unexpected error occurred',
+  });
+});
+
+// Start server
+const server = app.listen(config.port, () => {
+  logger.info(
+    {
+      port: config.port,
+      nodeEnv: config.nodeEnv,
+      widgetLayoutApiUrl: config.widgetLayoutApiUrl,
+    },
+    'MCP Sidecar server started'
+  );
+});
+
+// Graceful shutdown
+const gracefulShutdown = (signal: string) => {
+  logger.info({ signal }, 'Received shutdown signal');
+
+  server.close(() => {
+    logger.info('Server closed');
+    process.exit(0);
+  });
+
+  // Force shutdown after 10 seconds
+  setTimeout(() => {
+    logger.error('Forced shutdown after timeout');
+    process.exit(1);
+  }, 10000);
+};
+
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+
+export default app;
