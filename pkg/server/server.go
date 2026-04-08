@@ -137,7 +137,12 @@ func (Server) DeleteWidgetLayoutById(w http.ResponseWriter, r *http.Request, das
 func (Server) CopyWidgetLayoutById(w http.ResponseWriter, r *http.Request, dashboardTemplateId int64) {
 	id := middlewares.GetUserIdentity(r.Context())
 	w.Header().Set("Content-Type", "application/json")
-	resp, status, err := service.CopyDashboardTemplate(dashboardTemplateId, id)
+	var copyRequest api.CopyWidgetDashboardTemplateRequest
+	if r.Body != nil {
+		_ = json.NewDecoder(r.Body).Decode(&copyRequest)
+	}
+
+	resp, status, err := service.CopyDashboardTemplate(dashboardTemplateId, id, copyRequest.DashboardName)
 	if err != nil {
 		logrus.Errorf("Failed to copy dashboard template: %v", err)
 		w.WriteHeader(status)

@@ -157,6 +157,13 @@ paths:
           schema:
             type: integer
             format: int64
+      requestBody:
+        required: false
+        description: Optional parameters for the copied dashboard template
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CopyWidgetDashboardTemplateRequest'
       responses:
         '200':
           description: A copied dashboard template
@@ -876,6 +883,14 @@ components:
         - dashboardName
         - templateConfig
         - templateBase
+    CopyWidgetDashboardTemplateRequest:
+      type: object
+      properties:
+        dashboardName:
+          type: string
+          description: Optional custom name for the copied dashboard
+          x-oapi-codegen-extra-tags:
+            yaml: "dashboardName"
     ErrorPayload:
       type: object
       properties:
