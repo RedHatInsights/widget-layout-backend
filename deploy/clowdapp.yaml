@@ -24,48 +24,6 @@ objects:
                 - /api/widget-layout/v1/openapi.yaml
           podSpec:
             image: ${IMAGE}:${IMAGE_TAG}
-            # containers:
-            #   # MCP Sidecar Container
-            #   - name: mcp-sidecar
-            #     image: ${MCP_SIDECAR_IMAGE}:${MCP_SIDECAR_IMAGE_TAG}
-            #     ports:
-            #       - containerPort: 8001
-            #         name: mcp
-            #         protocol: TCP
-            #     env:
-            #       - name: PORT
-            #         value: "8001"
-            #       - name: WIDGET_LAYOUT_API_URL
-            #         value: "http://localhost:8000"
-            #       - name: LOG_LEVEL
-            #         value: ${LOG_LEVEL}
-            #       - name: NODE_ENV
-            #         value: "production"
-            #     resources:
-            #       limits:
-            #         cpu: ${CPU_LIMIT_MCP_SIDECAR}
-            #         memory: ${MEMORY_LIMIT_MCP_SIDECAR}
-            #       requests:
-            #         cpu: ${CPU_REQUEST_MCP_SIDECAR}
-            #         memory: ${MEMORY_REQUEST_MCP_SIDECAR}
-            #     livenessProbe:
-            #       httpGet:
-            #         path: /healthz
-            #         port: 8001
-            #         scheme: HTTP
-            #       initialDelaySeconds: 10
-            #       periodSeconds: 10
-            #       timeoutSeconds: 3
-            #       failureThreshold: 3
-            #     readinessProbe:
-            #       httpGet:
-            #         path: /ready
-            #         port: 8001
-            #         scheme: HTTP
-            #       initialDelaySeconds: 5
-            #       periodSeconds: 5
-            #       timeoutSeconds: 3
-            #       failureThreshold: 3
             initContainers:
               - name: run-db-migration
                 command:
@@ -120,24 +78,6 @@ objects:
                 memory: ${MEMORY_REQUEST_WIDGET_LAYOUT}
 
 parameters:
-- description: MCP Sidecar image
-  name: MCP_SIDECAR_IMAGE
-  value: quay.io/redhat-services-prod/hcc-platex-services-tenant/widget-layout-backend/mcp-sidecar
-- description: MCP Sidecar image tag
-  name: MCP_SIDECAR_IMAGE_TAG
-  required: true
-- description: MCP Sidecar CPU limit
-  name: CPU_LIMIT_MCP_SIDECAR
-  value: 200m
-- description: MCP Sidecar memory limit
-  name: MEMORY_LIMIT_MCP_SIDECAR
-  value: 256Mi
-- description: MCP Sidecar CPU requests
-  name: CPU_REQUEST_MCP_SIDECAR
-  value: 100m
-- description: MCP Sidecar memory requests
-  name: MEMORY_REQUEST_MCP_SIDECAR
-  value: 128Mi
 - description: Determines Clowder deployment
   name: CLOWDER_ENABLED
   value: "true"
