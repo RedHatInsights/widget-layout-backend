@@ -4,10 +4,19 @@ Welcome to the Widget Layout Backend project!
 
 ## Quick Start
 
+### Main Application
+
 - Build: `make build`
 - Run in development: `make dev`
 - Run tests: `make test`
 - Generate identity header for local requests: `make generate-identity`
+
+### MCP Sidecar
+
+- Build Docker image: `make build-mcp`
+- Run in development: `make dev-mcp`
+- Run tests: `make test-mcp`
+- Lint TypeScript code: `make lint-mcp`
 
 ## Testing
 
@@ -38,6 +47,21 @@ For comprehensive testing documentation, patterns, and best practices, see **[do
 
 Most endpoints require a valid `x-rh-identity` header. See [docs/DEVELOPMENT_IDENTITY_HEADER.md](docs/DEVELOPMENT_IDENTITY_HEADER.md) for instructions on generating and using this header for local development and testing.
 
+## MCP (Model Context Protocol) Integration
+
+This service includes a TypeScript-based MCP sidecar container that enables AI agents to interact with widget dashboard data via a standardized JSON-RPC 2.0 protocol. The sidecar runs alongside the main Go application and provides read-only access to dashboard templates, base templates, and widget mappings.
+
+**Key Features:**
+- 6 read-only tools for AI agents
+- Standard JSON-RPC 2.0 protocol
+- Authentication via x-rh-identity header
+- Prometheus metrics and structured logging
+- Full test coverage
+
+See **[docs/MCP.md](docs/MCP.md)** for complete MCP documentation and usage examples.
+
+See **[mcp/README.md](mcp/README.md)** for development setup and technical details.
+
 ## Documentation
 
 All project documentation is organized in the `docs/` folder:
@@ -46,7 +70,9 @@ All project documentation is organized in the `docs/` folder:
 - **[docs/TESTING.md](docs/TESTING.md)** - Comprehensive testing guide with patterns and best practices
 - **[docs/CONFIGURATION.md](docs/CONFIGURATION.md)** - Widget mapping and base template configuration guide
 - **[docs/DEVELOPMENT_IDENTITY_HEADER.md](docs/DEVELOPMENT_IDENTITY_HEADER.md)** - Identity header generation for local development
+- **[docs/MCP.md](docs/MCP.md)** - Model Context Protocol integration for AI agents
 - **[docs/AI_AGENT_CONTEXT.md](docs/AI_AGENT_CONTEXT.md)** - Guidelines for AI-assisted development
+- **[mcp/README.md](mcp/README.md)** - MCP sidecar development guide
 
 ## More Information
 
