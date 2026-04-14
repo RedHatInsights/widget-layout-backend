@@ -1,7 +1,5 @@
 import pino from 'pino';
-import { loadConfig } from '../config';
-
-const config = loadConfig();
+import { config } from '../config';
 
 export const logger = pino({
   level: config.logLevel,
@@ -22,7 +20,3 @@ export const logger = pino({
     },
   },
 });
-
-export function createRequestLogger(reqId: string) {
-  return logger.child({ req_id: reqId });
-}

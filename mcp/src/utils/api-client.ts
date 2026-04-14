@@ -1,9 +1,7 @@
 import axios, { AxiosInstance, AxiosError, AxiosRequestConfig } from 'axios';
-import { loadConfig } from '../config';
+import { config } from '../config';
 import { logger } from './logger';
 import { mcpApiCallDuration } from './metrics';
-
-const config = loadConfig();
 
 // Normalize URL path to prevent metric cardinality explosion
 // Replaces numeric/UUID segments with placeholders
@@ -86,29 +84,6 @@ export class ApiClient {
       const status = axios.isAxiosError(error) ? error.response?.status?.toString() || 'error' : 'error';
       mcpApiCallDuration.observe(
         { endpoint, method: 'GET', status },
-        duration
-      );
-      throw error;
-    }
-  }
-
-  async post<T>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<T> {
-    const startTime = Date.now();
-    const endpoint = normalizeEndpoint(url);
-
-    try {
-      const response = await this.client.post<T>(url, data, config);
-      const duration = (Date.now() - startTime) / 1000;
-      mcpApiCallDuration.observe(
-        { endpoint, method: 'POST', status: response.status.toString() },
-        duration
-      );
-      return response.data;
-    } catch (error) {
-      const duration = (Date.now() - startTime) / 1000;
-      const status = axios.isAxiosError(error) ? error.response?.status?.toString() || 'error' : 'error';
-      mcpApiCallDuration.observe(
-        { endpoint, method: 'POST', status },
         duration
       );
       throw error;

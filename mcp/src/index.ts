@@ -1,11 +1,9 @@
 import express, { Request, Response, NextFunction } from 'express';
-import { loadConfig } from './config';
+import { config } from './config';
 import { logger } from './utils/logger';
 import { getMetrics } from './utils/metrics';
 import { McpServer } from './server';
 import { JsonRpcRequest } from './types/mcp';
-
-const config = loadConfig();
 const app = express();
 const mcpServer = new McpServer();
 

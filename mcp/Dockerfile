@@ -8,18 +8,15 @@ WORKDIR /app
 # Copy package files
 COPY package.json package-lock.json* ./
 
-# Install dependencies
-RUN npm ci --only=production && \
-    npm cache clean --force
-
 # Copy source code
 COPY tsconfig.json ./
 COPY src ./src
 
-# Install dev dependencies and build
-RUN npm install --only=development && \
+# Install all dependencies, build, then prune to production only
+RUN npm ci && \
     npm run build && \
-    npm prune --production
+    npm prune --production && \
+    npm cache clean --force
 
 # Production stage
 FROM registry.access.redhat.com/ubi9/nodejs-20-minimal:latest

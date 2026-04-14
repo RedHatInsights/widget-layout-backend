@@ -9,11 +9,9 @@ const configSchema = z.object({
 
 export type Config = z.infer<typeof configSchema>;
 
-export function loadConfig(): Config {
-  return configSchema.parse({
-    port: process.env.PORT,
-    widgetLayoutApiUrl: process.env.WIDGET_LAYOUT_API_URL,
-    logLevel: process.env.LOG_LEVEL,
-    nodeEnv: process.env.NODE_ENV,
-  });
-}
+export const config = configSchema.parse({
+  port: process.env.PORT,
+  widgetLayoutApiUrl: process.env.WIDGET_LAYOUT_API_URL,
+  logLevel: process.env.LOG_LEVEL,
+  nodeEnv: process.env.NODE_ENV,
+});
