@@ -261,6 +261,30 @@ func ForkBaseTemplate(baseTemplateName string, id identity.XRHID) (api.Dashboard
 	return newTemplate, http.StatusOK, nil
 }
 
+func RenameDashboardTemplate(templateID int64, newName string, id identity.XRHID) (api.DashboardTemplate, int, error) {
+	var template api.DashboardTemplate
+	err := database.DB.First(&template, templateID).Error
+	if ret, status, err := handleServiceError(
+		err,
+		fmt.Sprintf("Dashboard template with ID %d not found", templateID),
+		"Failed to retrieve dashboard template with ID %d: %v", http.StatusNotFound,
+		api.DashboardTemplate{}, api.DashboardTemplate{},
+	); err != nil {
+		return ret, status, err
+	}
+	if !template.IsAuthorized(id.Identity.User.UserID) {
+		return api.DashboardTemplate{}, http.StatusForbidden, errors.New("unauthorized")
+	}
+	logrus.Infof("Renaming dashboard template with ID: %d", templateID)
+	template.DashboardName = newName
+	err = database.DB.Model(&template).Update("dashboard_name", newName).Error
+	if err != nil {
+		logrus.Errorf("Failed to rename dashboard template with ID %d: %v", templateID, err)
+		return api.DashboardTemplate{}, http.StatusInternalServerError, err
+	}
+	return template, http.StatusOK, nil
+}
+
 func ImportDashboardTemplate(importData api.ImportWidgetLayoutJSONRequestBody, id identity.XRHID) (api.DashboardTemplate, int, error) {
 	newTemplate := api.DashboardTemplate{
 		TemplateConfig: importData.TemplateConfig,
