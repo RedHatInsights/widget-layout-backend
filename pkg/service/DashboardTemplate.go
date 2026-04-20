@@ -126,7 +126,7 @@ func DeleteDashboardTemplate(templateID int64, id identity.XRHID) (int, error) {
 	return http.StatusNoContent, nil
 }
 
-func CopyDashboardTemplate(templateID int64, id identity.XRHID) (api.DashboardTemplate, int, error) {
+func CopyDashboardTemplate(templateID int64, id identity.XRHID, dashboardName *string) (api.DashboardTemplate, int, error) {
 	var dashboardTemplate api.DashboardTemplate
 	err := database.DB.First(&dashboardTemplate, templateID).Error
 	if ret, status, err := handleServiceError(
@@ -143,6 +143,9 @@ func CopyDashboardTemplate(templateID int64, id identity.XRHID) (api.DashboardTe
 		TemplateBase:   dashboardTemplate.TemplateBase,
 		UserId:         id.Identity.User.UserID,
 		TemplateConfig: dashboardTemplate.TemplateConfig,
+	}
+	if dashboardName != nil && *dashboardName != "" {
+		newTemplate.DashboardName = *dashboardName
 	}
 	err = database.DB.Create(&newTemplate).Error
 	if err != nil {
@@ -169,9 +172,9 @@ func ChangeDefaultTemplate(templateID int64, id identity.XRHID) (api.DashboardTe
 	}
 	tx := database.DB.Begin()
 	// Update all other templates with the same base to unset their default status
-	err = tx.Where(&api.DashboardTemplate{TemplateBase: api.DashboardTemplateBase{
-		Name: template.TemplateBase.Name,
-	}}).Updates(api.DashboardTemplate{Default: false}).Error
+	// Use map update because GORM skips zero-value fields in struct updates,
+	// and false is the zero value for bool.
+	err = tx.Model(&api.DashboardTemplate{}).Where("name = ? AND user_id = ? AND id <> ?", template.TemplateBase.Name, id.Identity.User.UserID, template.ID).Updates(map[string]interface{}{"default": false}).Error
 	if err != nil {
 		logrus.Errorf("Failed to unset default dashboard template with ID %d: %v", templateID, err)
 		tx.Rollback()
@@ -256,6 +259,30 @@ func ForkBaseTemplate(baseTemplateName string, id identity.XRHID) (api.Dashboard
 
 	logrus.Infof("Successfully forked base template %s to dashboard template with ID %d for user %s", baseTemplateName, newTemplate.ID, id.Identity.User.UserID)
 	return newTemplate, http.StatusOK, nil
+}
+
+func RenameDashboardTemplate(templateID int64, newName string, id identity.XRHID) (api.DashboardTemplate, int, error) {
+	var template api.DashboardTemplate
+	err := database.DB.First(&template, templateID).Error
+	if ret, status, err := handleServiceError(
+		err,
+		fmt.Sprintf("Dashboard template with ID %d not found", templateID),
+		"Failed to retrieve dashboard template with ID %d: %v", http.StatusNotFound,
+		api.DashboardTemplate{}, api.DashboardTemplate{},
+	); err != nil {
+		return ret, status, err
+	}
+	if !template.IsAuthorized(id.Identity.User.UserID) {
+		return api.DashboardTemplate{}, http.StatusForbidden, errors.New("unauthorized")
+	}
+	logrus.Infof("Renaming dashboard template with ID: %d", templateID)
+	template.DashboardName = newName
+	err = database.DB.Model(&template).Update("dashboard_name", newName).Error
+	if err != nil {
+		logrus.Errorf("Failed to rename dashboard template with ID %d: %v", templateID, err)
+		return api.DashboardTemplate{}, http.StatusInternalServerError, err
+	}
+	return template, http.StatusOK, nil
 }
 
 func ImportDashboardTemplate(importData api.ImportWidgetLayoutJSONRequestBody, id identity.XRHID) (api.DashboardTemplate, int, error) {

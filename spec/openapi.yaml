@@ -145,6 +145,56 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /{dashboardTemplateId}/rename:
+    patch:
+      summary: Rename a specific dashboard template
+      operationId: renameWidgetLayoutById
+      parameters:
+        - name: dashboardTemplateId
+          in: path
+          required: true
+          description: The unique identifier of the dashboard template to rename
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        description: The new name for the dashboard template
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RenameWidgetDashboardTemplateRequest'
+      responses:
+        '200':
+          description: Dashboard template renamed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DashboardTemplate'
+        '400':
+          description: Bad request, missing or empty dashboard name
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Unauthorized access to rename the dashboard template
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Dashboard template not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /{dashboardTemplateId}/copy:
     post:
       summary: Copy a specific dashboard template
@@ -157,6 +207,13 @@ paths:
           schema:
             type: integer
             format: int64
+      requestBody:
+        required: false
+        description: Optional parameters for the copied dashboard template
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CopyWidgetDashboardTemplateRequest'
       responses:
         '200':
           description: A copied dashboard template
@@ -876,6 +933,24 @@ components:
         - dashboardName
         - templateConfig
         - templateBase
+    RenameWidgetDashboardTemplateRequest:
+      type: object
+      properties:
+        dashboardName:
+          type: string
+          description: The new name for the dashboard
+          x-oapi-codegen-extra-tags:
+            yaml: "dashboardName"
+      required:
+        - dashboardName
+    CopyWidgetDashboardTemplateRequest:
+      type: object
+      properties:
+        dashboardName:
+          type: string
+          description: Optional custom name for the copied dashboard
+          x-oapi-codegen-extra-tags:
+            yaml: "dashboardName"
     ErrorPayload:
       type: object
       properties:

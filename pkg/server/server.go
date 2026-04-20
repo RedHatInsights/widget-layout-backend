@@ -3,6 +3,7 @@ package server
 import (
 	"encoding/json"
 	"net/http"
+	"strings"
 
 	"github.com/RedHatInsights/widget-layout-backend/api"
 	"github.com/RedHatInsights/widget-layout-backend/pkg/middlewares"
@@ -134,10 +135,60 @@ func (Server) DeleteWidgetLayoutById(w http.ResponseWriter, r *http.Request, das
 	w.Write(nil)
 }
 
+func (Server) RenameWidgetLayoutById(w http.ResponseWriter, r *http.Request, dashboardTemplateId int64) {
+	w.Header().Set("Content-Type", "application/json")
+	var renameRequest api.RenameWidgetDashboardTemplateRequest
+	if err := json.NewDecoder(r.Body).Decode(&renameRequest); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		_ = json.NewEncoder(w).Encode(api.ErrorResponse{Errors: []api.ErrorPayload{
+			{
+				Code:    http.StatusBadRequest,
+				Message: "Invalid request body",
+			},
+		}})
+		return
+	}
+	if strings.TrimSpace(renameRequest.DashboardName) == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		_ = json.NewEncoder(w).Encode(api.ErrorResponse{Errors: []api.ErrorPayload{
+			{
+				Code:    http.StatusBadRequest,
+				Message: "dashboardName is required and cannot be empty",
+			},
+		}})
+		return
+	}
+	id := middlewares.GetUserIdentity(r.Context())
+	resp, status, err := service.RenameDashboardTemplate(dashboardTemplateId, renameRequest.DashboardName, id)
+	if err != nil {
+		logrus.Errorf("Failed to rename dashboard template: %v", err)
+		w.WriteHeader(status)
+		_ = json.NewEncoder(w).Encode(api.ErrorResponse{Errors: []api.ErrorPayload{
+			{
+				Code:    status,
+				Message: err.Error(),
+			},
+		}})
+		return
+	}
+	w.WriteHeader(status)
+	err = json.NewEncoder(w).Encode(resp)
+	if err != nil {
+		logrus.Errorf("Failed to encode response: %v", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+}
+
 func (Server) CopyWidgetLayoutById(w http.ResponseWriter, r *http.Request, dashboardTemplateId int64) {
 	id := middlewares.GetUserIdentity(r.Context())
 	w.Header().Set("Content-Type", "application/json")
-	resp, status, err := service.CopyDashboardTemplate(dashboardTemplateId, id)
+	var copyRequest api.CopyWidgetDashboardTemplateRequest
+	if r.Body != nil {
+		_ = json.NewDecoder(r.Body).Decode(&copyRequest)
+	}
+
+	resp, status, err := service.CopyDashboardTemplate(dashboardTemplateId, id, copyRequest.DashboardName)
 	if err != nil {
 		logrus.Errorf("Failed to copy dashboard template: %v", err)
 		w.WriteHeader(status)

@@ -64,15 +64,20 @@ See **[mcp/README.md](mcp/README.md)** for development setup and technical detai
 
 ## Documentation
 
-All project documentation is organized in the `docs/` folder:
-
-- **[docs/API.md](docs/API.md)** - Complete API documentation with endpoints, examples, and schemas
-- **[docs/TESTING.md](docs/TESTING.md)** - Comprehensive testing guide with patterns and best practices
-- **[docs/CONFIGURATION.md](docs/CONFIGURATION.md)** - Widget mapping and base template configuration guide
-- **[docs/DEVELOPMENT_IDENTITY_HEADER.md](docs/DEVELOPMENT_IDENTITY_HEADER.md)** - Identity header generation for local development
-- **[docs/MCP.md](docs/MCP.md)** - Model Context Protocol integration for AI agents
-- **[docs/AI_AGENT_CONTEXT.md](docs/AI_AGENT_CONTEXT.md)** - Guidelines for AI-assisted development
-- **[mcp/README.md](mcp/README.md)** - MCP sidecar development guide
+| Document | Description |
+|----------|-------------|
+| [AGENTS.md](AGENTS.md) | AI agent onboarding: conventions, pitfalls, docs index |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | Contribution workflow, commit conventions, PR process |
+| [docs/API.md](docs/API.md) | Complete API documentation with endpoints, examples, schemas |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | System design, data flow, deployment architecture |
+| [docs/TESTING.md](docs/TESTING.md) | Comprehensive testing guide with patterns and best practices |
+| [docs/CONFIGURATION.md](docs/CONFIGURATION.md) | Widget mapping, base template config, cx/cy coordinate system |
+| [docs/DEVELOPMENT_IDENTITY_HEADER.md](docs/DEVELOPMENT_IDENTITY_HEADER.md) | Identity header generation for local development |
+| [docs/WIDGET_MIGRATION.md](docs/WIDGET_MIGRATION.md) | Widget migration procedures |
+| [docs/AI_AGENT_CONTEXT.md](docs/AI_AGENT_CONTEXT.md) | Legacy AI agent guidelines |
+| [docs/testing-guidelines.md](docs/testing-guidelines.md) | Concise testing rules for agents |
+| [docs/api-development-guidelines.md](docs/api-development-guidelines.md) | API development conventions |
+| [docs/database-guidelines.md](docs/database-guidelines.md) | GORM patterns and database conventions |
 
 ## More Information
 
@@ -81,6 +86,8 @@ All project documentation is organized in the `docs/` folder:
 - See the `cmd/dev/user-identity.go` script for identity header generation logic.
 - See **[docs/TESTING.md](docs/TESTING.md)** for comprehensive testing documentation.
 - See **[docs/AI_AGENT_CONTEXT.md](docs/AI_AGENT_CONTEXT.md)** for guidelines when using AI-assisted development.
+- See **[docs/MCP.md](docs/MCP.md)** - Model Context Protocol integration for AI agents
+- See **[mcp/README.md](mcp/README.md)** - MCP sidecar development guide
 
 ---
 
