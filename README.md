@@ -79,6 +79,38 @@ See **[mcp/README.md](mcp/README.md)** for development setup and technical detai
 | [docs/api-development-guidelines.md](docs/api-development-guidelines.md) | API development conventions |
 | [docs/database-guidelines.md](docs/database-guidelines.md) | GORM patterns and database conventions |
 
+## Grafana Dashboard
+
+A basic Grafana dashboard is defined in `dashboards/grafana-dashboard-insights-widget-layout-backend-general.configmap.yml`. It includes latency and 2xx response rate panels.
+
+To preview locally:
+
+```bash
+# Start Grafana
+docker run -d -p 3000:3000 --name grafana-local grafana/grafana
+
+# Extract and import the dashboard
+python3 -c "
+import yaml, json
+with open('dashboards/grafana-dashboard-insights-widget-layout-backend-general.configmap.yml') as f:
+    cm = yaml.safe_load(f)
+dashboard_json = json.loads(cm['data']['general.json'])
+print(json.dumps({'dashboard': dashboard_json, 'overwrite': True}))
+" > /tmp/grafana-dashboard-import.json
+
+curl -s -X POST http://admin:admin@localhost:3000/api/dashboards/db \
+  -H "Content-Type: application/json" \
+  -d @/tmp/grafana-dashboard-import.json
+
+# Open http://localhost:3000/d/widget-layout-backend-general/widget-layout-backend
+# Login: admin / admin
+
+# Cleanup
+docker stop grafana-local && docker rm grafana-local
+```
+
+> **Note:** The local Grafana instance has no Prometheus datasource, so panels will show "No data". This is expected — the purpose is to verify dashboard structure and layout, not live metrics.
+
 ## More Information
 
 - See **[docs/API.md](docs/API.md)** for complete API documentation with endpoints, examples, and schemas.
