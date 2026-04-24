@@ -90,7 +90,7 @@ data:
                 "uid": "${datasource}"
               },
               "exemplar": true,
-              "expr": "sum(rate(api_3scale_gateway_api_time_bucket{le=\"2000.0\", exported_service=\"widget-layout-backend\"}[24h])) / sum(rate(api_3scale_gateway_api_time_bucket{le=\"+Inf\", exported_service=\"widget-layout-backend\"}[24h]))",
+              "expr": "sum(rate(api_3scale_gateway_api_time_bucket{le=\"2000.0\", exported_service=\"widget-layout\"}[24h])) / sum(rate(api_3scale_gateway_api_time_bucket{le=\"+Inf\", exported_service=\"widget-layout\"}[24h]))",
               "interval": "",
               "legendFormat": "",
               "refId": "A"
@@ -158,7 +158,7 @@ data:
                 "uid": "${datasource}"
               },
               "exemplar": false,
-              "expr": "round(sum(rate(api_3scale_gateway_api_status{exported_service=\"widget-layout-backend\", status=~\"2xx\"}[24h])) \n    /\n    sum(rate(api_3scale_gateway_api_status{exported_service=\"widget-layout-backend\"}[24h])), 0.0001)",
+              "expr": "round(sum(rate(api_3scale_gateway_api_status{exported_service=\"widget-layout\", status=~\"2xx\"}[24h])) \n    /\n    sum(rate(api_3scale_gateway_api_status{exported_service=\"widget-layout\"}[24h])), 0.0001)",
               "instant": false,
               "interval": "",
               "legendFormat": "",
