@@ -1,4 +1,4 @@
-FROM registry.access.redhat.com/ubi9/go-toolset:9.7-1773318690 AS builder
+FROM registry.access.redhat.com/ubi9/go-toolset:9.7-1776962329 AS builder
 COPY api api
 COPY pkg pkg
 COPY cmd cmd
