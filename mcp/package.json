@@ -44,7 +44,7 @@
     "nock": "^13.5.4",
     "ts-jest": "^29.2.5",
     "tsx": "^4.19.2",
-    "typescript": "^5.7.2",
+    "typescript": "^6.0.0",
     "typescript-eslint": "^8.18.2"
   },
   "engines": {
