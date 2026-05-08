@@ -246,10 +246,21 @@ def do_export():
             dt.deleted_at
         FROM dashboard_templates dt
         JOIN user_identities ui ON dt.user_identity_id = ui.id
+        WHERE dt.deleted_at IS NULL
     """)
 
     rows = cur.fetchall()
     print(f"Fetched {len(rows)} rows (with user_id resolved)")
+
+    bad_rows = [r for r in rows if not r["user_id"]]
+    if bad_rows:
+        print(f"ERROR: {len(bad_rows)} rows have NULL/empty user_id:")
+        for r in bad_rows:
+            print(f"  name={r['name']}, display_name={r['display_name']}")
+        print("Aborting — fix user_identities data before retrying.")
+        cur.close()
+        conn.close()
+        sys.exit(1)
 
     with open(OUTPUT_FILE, "w") as f:
         f.write("-- Widget Migration: chrome-service -> widget-layout-backend\n")
@@ -283,7 +294,7 @@ def do_export():
     print(f"  1. Review {OUTPUT_FILE}")
     print(f"  2. Copy out: oc -n chrome-service-stage cp debug-container:{OUTPUT_FILE} ./widget_migration.sql")
     print(f"  3. Copy in:  oc -n widget-layout-backend-stage cp ./widget_migration.sql debug-container:{OUTPUT_FILE}")
-    print(f"  4. Run import: python3 widget-migration-script.py import")
+    print("  4. Run import: python3 widget-migration-script.py import")
 
     cur.close()
     conn.close()
@@ -310,8 +321,15 @@ def do_import():
     cur = conn.cursor()
 
     print("Running import...")
-    cur.execute(sql)
-    conn.commit()
+    try:
+        cur.execute(sql)
+        conn.commit()
+    except psycopg2.Error as e:
+        conn.rollback()
+        print(f"ERROR: Import failed, transaction rolled back: {e}")
+        cur.close()
+        conn.close()
+        sys.exit(1)
 
     cur.execute("SELECT COUNT(*) FROM dashboard_templates")
     count = cur.fetchone()[0]

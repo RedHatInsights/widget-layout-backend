@@ -2,7 +2,7 @@
 
 Migrate the `dashboard_templates` table from chrome-service DB to widget-layout-backend DB in production.
 
-**IMPORTANT: Complete and verify the [staging migration](./widget-migration-plan-staging.md) before proceeding with production.**
+**IMPORTANT: Complete and verify the [staging migration](./MIGRATION_STAGING.md) before proceeding with production.**
 
 ---
 
@@ -642,5 +642,5 @@ If a full rollback is needed and manual deletion is insufficient, restore the wi
 | Cluster | `crcp01ue1` |
 | Cluster console | `https://console-openshift-console.apps.crcp01ue1.o9m8.p1.openshiftapps.com` |
 | GABI endpoint (prod) | `https://gabi-chrome-service-prod.apps.crcp01ue1.o9m8.p1.openshiftapps.com` |
-| Staging migration plan | `widget-migration-plan-staging.md` |
+| Staging migration plan | `MIGRATION_STAGING.md` |
 | JIRA ticket | RHCLOUD-40883 |
