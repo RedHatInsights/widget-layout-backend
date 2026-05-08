@@ -10,9 +10,11 @@ Schema translation:
 
 Usage:
   1. Copy this script into chrome-service debug-container
-  2. Run: python3 widget-migration-script.py export
-  3. Copy /tmp/widget_migration.sql out, then into widget-layout debug-container
-  4. Run: python3 widget-migration-script.py import
+  2. Run: python3 widget-migration-script.py preflight-export
+  3. Run: python3 widget-migration-script.py export
+  4. Copy /tmp/widget_migration.sql out, then into widget-layout debug-container
+  5. Run: python3 widget-migration-script.py preflight-import
+  6. Run: python3 widget-migration-script.py import
 """
 
 import json
@@ -51,6 +53,169 @@ def sql_value(val):
         return "'" + json.dumps(val).replace("'", "''") + "'::jsonb"
     s = str(val).replace("'", "''")
     return f"'{s}'"
+
+
+def check(label, ok, detail=""):
+    status = "PASS" if ok else "FAIL"
+    msg = f"  [{status}] {label}"
+    if detail:
+        msg += f" — {detail}"
+    print(msg)
+    return ok
+
+
+def do_preflight_export():
+    print("=== Preflight: Source DB (chrome-service) ===\n")
+    all_ok = True
+
+    # 1. Connectivity
+    try:
+        conn = get_connection()
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        all_ok &= check("DB connectivity", True)
+    except Exception as e:
+        check("DB connectivity", False, str(e))
+        sys.exit(1)
+
+    # 2. SELECT permission on dashboard_templates
+    try:
+        cur.execute("SELECT COUNT(*) as cnt FROM dashboard_templates")
+        total = cur.fetchone()["cnt"]
+        all_ok &= check("SELECT on dashboard_templates", True, f"{total} total rows")
+    except Exception as e:
+        all_ok &= check("SELECT on dashboard_templates", False, str(e))
+        cur.close()
+        conn.close()
+        print(f"\n{'READY' if all_ok else 'NOT READY'} for export.")
+        sys.exit(0 if all_ok else 1)
+
+    # 3. SELECT permission on user_identities
+    try:
+        cur.execute("SELECT COUNT(*) as cnt FROM user_identities")
+        ui_total = cur.fetchone()["cnt"]
+        all_ok &= check("SELECT on user_identities", True, f"{ui_total} total rows")
+    except Exception as e:
+        all_ok &= check("SELECT on user_identities", False, str(e))
+
+    # 4. Active (non-deleted) rows
+    cur.execute("SELECT COUNT(*) as cnt FROM dashboard_templates WHERE deleted_at IS NULL")
+    active = cur.fetchone()["cnt"]
+    all_ok &= check("Active dashboard_templates", active > 0, f"{active} rows (deleted_at IS NULL)")
+
+    # 5. Orphaned rows (no matching user_identity)
+    cur.execute("""
+        SELECT COUNT(*) as cnt FROM dashboard_templates dt
+        LEFT JOIN user_identities ui ON dt.user_identity_id = ui.id
+        WHERE ui.id IS NULL
+    """)
+    orphaned = cur.fetchone()["cnt"]
+    all_ok &= check("Orphaned rows (no user_identity)", orphaned == 0,
+                     f"{orphaned} rows will be dropped by JOIN" if orphaned > 0 else "none")
+
+    # 6. Users with NULL/empty account_id
+    cur.execute("""
+        SELECT COUNT(*) as cnt FROM dashboard_templates dt
+        JOIN user_identities ui ON dt.user_identity_id = ui.id
+        WHERE ui.account_id IS NULL OR ui.account_id = ''
+    """)
+    null_acct = cur.fetchone()["cnt"]
+    all_ok &= check("NULL/empty account_id", null_acct == 0,
+                     f"{null_acct} rows would get NULL user_id in target" if null_acct > 0 else "none")
+
+    # 7. Row count after JOIN (what export will actually produce)
+    cur.execute("""
+        SELECT COUNT(*) as cnt FROM dashboard_templates dt
+        JOIN user_identities ui ON dt.user_identity_id = ui.id
+    """)
+    join_count = cur.fetchone()["cnt"]
+    all_ok &= check("Exportable rows (after JOIN)", join_count > 0, f"{join_count} rows")
+
+    cur.close()
+    conn.close()
+
+    print(f"\n{'READY' if all_ok else 'NOT READY'} for export.")
+    if not all_ok:
+        sys.exit(1)
+
+
+def do_preflight_import():
+    print("=== Preflight: Target DB (widget-layout-backend) ===\n")
+    all_ok = True
+
+    # 1. Connectivity
+    try:
+        conn = get_connection()
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        all_ok &= check("DB connectivity", True)
+    except Exception as e:
+        check("DB connectivity", False, str(e))
+        sys.exit(1)
+
+    # 2. dashboard_templates table exists
+    try:
+        cur.execute("""
+            SELECT COUNT(*) as cnt FROM information_schema.tables
+            WHERE table_schema = 'public' AND table_name = 'dashboard_templates'
+        """)
+        exists = cur.fetchone()["cnt"] > 0
+        all_ok &= check("dashboard_templates table exists", exists)
+    except Exception as e:
+        all_ok &= check("dashboard_templates table exists", False, str(e))
+
+    # 3. Expected columns exist
+    expected_cols = {"user_id", "dashboard_name", "default", "name", "display_name",
+                     "sm", "md", "lg", "xl", "created_at", "updated_at", "deleted_at"}
+    try:
+        cur.execute("""
+            SELECT column_name FROM information_schema.columns
+            WHERE table_schema = 'public' AND table_name = 'dashboard_templates'
+        """)
+        actual_cols = {row["column_name"] for row in cur.fetchall()}
+        missing = expected_cols - actual_cols
+        all_ok &= check("Expected columns present", len(missing) == 0,
+                         f"missing: {', '.join(sorted(missing))}" if missing else "all found")
+    except Exception as e:
+        all_ok &= check("Expected columns present", False, str(e))
+
+    # 4. INSERT permission (dry test)
+    try:
+        cur.execute("BEGIN")
+        cur.execute("""
+            INSERT INTO dashboard_templates (user_id, dashboard_name, "default", name, display_name, sm, md, lg, xl)
+            VALUES ('__preflight_test__', '__test__', false, '__test__', '__test__', '[]'::jsonb, '[]'::jsonb, '[]'::jsonb, '[]'::jsonb)
+        """)
+        conn.rollback()
+        all_ok &= check("INSERT permission", True, "test row inserted and rolled back")
+    except Exception as e:
+        conn.rollback()
+        all_ok &= check("INSERT permission", False, str(e))
+
+    # 5. Current row count (duplicate risk)
+    try:
+        cur.execute("SELECT COUNT(*) as cnt FROM dashboard_templates")
+        existing = cur.fetchone()["cnt"]
+        if existing > 0:
+            all_ok &= check("Target table empty", False, f"{existing} rows already exist — risk of duplicates")
+        else:
+            all_ok &= check("Target table empty", True, "0 rows")
+    except Exception as e:
+        all_ok &= check("Target table empty", False, str(e))
+
+    # 6. SQL file exists
+    sql_exists = os.path.exists(OUTPUT_FILE)
+    if sql_exists:
+        with open(OUTPUT_FILE) as f:
+            insert_count = f.read().count("INSERT INTO")
+        all_ok &= check(f"SQL file exists ({OUTPUT_FILE})", True, f"{insert_count} INSERT statements")
+    else:
+        all_ok &= check(f"SQL file exists ({OUTPUT_FILE})", False, "copy it from source debug-container first")
+
+    cur.close()
+    conn.close()
+
+    print(f"\n{'READY' if all_ok else 'NOT READY'} for import.")
+    if not all_ok:
+        sys.exit(1)
 
 
 def do_export():
@@ -158,17 +323,29 @@ def do_import():
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 2 or sys.argv[1] not in ("export", "import"):
-        print("Usage: python3 widget-migration-script.py <export|import>")
+    commands = ("preflight-export", "preflight-import", "export", "import")
+    if len(sys.argv) != 2 or sys.argv[1] not in commands:
+        print("Usage: python3 widget-migration-script.py <command>")
         print()
-        print("  export  - Run inside chrome-service debug-container")
-        print("            Generates SQL file from source DB")
+        print("  preflight-export  - Run inside chrome-service debug-container")
+        print("                      Checks connectivity, permissions, data quality")
         print()
-        print("  import  - Run inside widget-layout-backend debug-container")
-        print("            Executes SQL file against target DB")
+        print("  preflight-import  - Run inside widget-layout-backend debug-container")
+        print("                      Checks connectivity, permissions, schema, target state")
+        print()
+        print("  export            - Run inside chrome-service debug-container")
+        print("                      Generates SQL file from source DB")
+        print()
+        print("  import            - Run inside widget-layout-backend debug-container")
+        print("                      Executes SQL file against target DB")
         sys.exit(1)
 
-    if sys.argv[1] == "export":
+    cmd = sys.argv[1]
+    if cmd == "preflight-export":
+        do_preflight_export()
+    elif cmd == "preflight-import":
+        do_preflight_import()
+    elif cmd == "export":
         do_export()
     else:
         do_import()

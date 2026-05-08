@@ -248,22 +248,22 @@ oc -n chrome-service-stage cp ./widget-migration-script.py debug-container:/tmp/
 oc -n chrome-service-stage exec -it debug-container -- bash
 ```
 
-### 9.3 Verify DB Connectivity
-
-Inside the container, the DB secret is available as environment variables. Test the connection:
+### 9.3 Run Preflight Check
 
 ```bash
-echo "Host: $DB_HOST"
-echo "User: $DB_USER"
-echo "DB:   $DB_NAME"
-echo "Port: ${DB_PORT:-5432}"
-
-PGPASSWORD="$DB_PASSWORD" psql \
-    -h "$DB_HOST" -p "${DB_PORT:-5432}" -U "$DB_USER" -d "$DB_NAME" \
-    -c "SELECT COUNT(*) FROM dashboard_templates"
+python3 /tmp/widget-migration-script.py preflight-export
 ```
 
-You should see a row count. If this fails, verify the secret name is correct:
+This checks:
+- DB connectivity and SELECT permissions
+- Active row count in `dashboard_templates`
+- Orphaned rows (no matching `user_identity`) — these will be dropped by the JOIN
+- Users with NULL/empty `account_id` — these would produce NULL `user_id` in target
+- Total exportable rows after JOIN
+
+All checks must show `[PASS]`. If any show `[FAIL]`, investigate before proceeding.
+
+If the DB secret is not mounted correctly:
 ```bash
 env | grep DB_
 ```
@@ -347,27 +347,26 @@ oc -n widget-layout-backend-stage cp ./widget-migration-script.py debug-containe
 
 ---
 
-## 13. Step 10: Review the Generated SQL
-
-Before importing, review the SQL to ensure correctness.
+## 13. Step 10: Run Preflight Check on Target DB
 
 ```bash
 oc -n widget-layout-backend-stage exec -it debug-container -- bash
 ```
 
-Inside the container:
+```bash
+python3 /tmp/widget-migration-script.py preflight-import
+```
+
+This checks:
+- DB connectivity and `dashboard_templates` table exists
+- All expected columns present (`user_id`, `dashboard_name`, `sm`, `md`, `lg`, `xl`, etc.)
+- INSERT permission (inserts a test row and rolls back)
+- Target table is empty (warns about duplicate risk if not)
+- SQL file exists and has INSERT statements
+
+All checks must show `[PASS]`. If any show `[FAIL]`, investigate before proceeding.
 
 ```bash
-# Check first few INSERT statements
-head -30 /tmp/widget_migration.sql
-
-# Count total inserts
-grep -c "^INSERT" /tmp/widget_migration.sql
-
-# Check for any NULL user_ids (would indicate failed JOIN)
-grep "VALUES (NULL" /tmp/widget_migration.sql || echo "No NULL user_ids - good"
-
-# Exit for now
 exit
 ```
 
@@ -381,21 +380,7 @@ exit
 oc -n widget-layout-backend-stage exec -it debug-container -- bash
 ```
 
-### 14.2 Verify Target DB Connectivity
-
-```bash
-echo "Host: $DB_HOST"
-echo "User: $DB_USER"
-echo "DB:   $DB_NAME"
-
-PGPASSWORD="$DB_PASSWORD" psql \
-    -h "$DB_HOST" -p "${DB_PORT:-5432}" -U "$DB_USER" -d "$DB_NAME" \
-    -c "SELECT COUNT(*) FROM dashboard_templates"
-```
-
-Note the current row count (should be 0 or whatever exists before migration).
-
-### 14.3 Run the Import
+### 14.2 Run the Import
 
 ```bash
 python3 /tmp/widget-migration-script.py import

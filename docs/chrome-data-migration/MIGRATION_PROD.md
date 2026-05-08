@@ -321,20 +321,25 @@ oc -n chrome-service-prod cp ./widget-migration-script.py debug-container:/tmp/w
 oc -n chrome-service-prod exec -it debug-container -- bash
 ```
 
-### 9.3 Verify DB Connectivity
+### 9.3 Run Preflight Check
 
 ```bash
-echo "Host: $DB_HOST"
-echo "User: $DB_USER"
-echo "DB:   $DB_NAME"
-echo "Port: ${DB_PORT:-5432}"
-
-PGPASSWORD="$DB_PASSWORD" psql \
-    -h "$DB_HOST" -p "${DB_PORT:-5432}" -U "$DB_USER" -d "$DB_NAME" \
-    -c "SELECT COUNT(*) FROM dashboard_templates"
+python3 /tmp/widget-migration-script.py preflight-export
 ```
 
-**IMPORTANT:** Note the exact row count. Production data is critical — document this number before proceeding.
+This checks:
+- DB connectivity and SELECT permissions
+- Active row count in `dashboard_templates`
+- Orphaned rows (no matching `user_identity`) — these will be dropped by the JOIN
+- Users with NULL/empty `account_id` — these would produce NULL `user_id` in target
+- Total exportable rows after JOIN
+
+**IMPORTANT:** All checks must show `[PASS]`. Document the row counts. **STOP if any check shows `[FAIL]`** — investigate before proceeding. Production data is critical.
+
+If the DB secret is not mounted correctly:
+```bash
+env | grep DB_
+```
 
 ### 9.4 Run the Export
 
@@ -418,35 +423,28 @@ oc -n widget-layout-backend-prod cp ./widget-migration-script.py debug-container
 
 ---
 
-## 13. Step 10: Review the Generated SQL
+## 13. Step 10: Run Preflight Check on Target DB
 
-**This review is mandatory for production.** Do not skip.
+**This check is mandatory for production.** Do not skip.
 
 ```bash
 oc -n widget-layout-backend-prod exec -it debug-container -- bash
 ```
 
-Inside the container:
+```bash
+python3 /tmp/widget-migration-script.py preflight-import
+```
+
+This checks:
+- DB connectivity and `dashboard_templates` table exists
+- All expected columns present (`user_id`, `dashboard_name`, `sm`, `md`, `lg`, `xl`, etc.)
+- INSERT permission (inserts a test row and rolls back)
+- Target table is empty (warns about duplicate risk if not)
+- SQL file exists and has INSERT statements
+
+**STOP if any check shows `[FAIL]`.** Investigate before proceeding.
 
 ```bash
-# Count total inserts
-grep -c "^INSERT" /tmp/widget_migration.sql
-
-# Check for NULL user_ids
-grep "VALUES (NULL" /tmp/widget_migration.sql || echo "No NULL user_ids - good"
-
-# Check for empty user_ids
-grep "VALUES (''" /tmp/widget_migration.sql || echo "No empty user_ids - good"
-
-# Sample a few rows for sanity
-head -30 /tmp/widget_migration.sql
-
-# Check the SQL is wrapped in a transaction
-head -5 /tmp/widget_migration.sql
-# Should see BEGIN;
-tail -3 /tmp/widget_migration.sql
-# Should see COMMIT;
-
 exit
 ```
 
@@ -458,19 +456,6 @@ exit
 
 ```bash
 oc -n widget-layout-backend-prod exec -it debug-container -- bash
-```
-
-### 14.2 Verify Target DB Connectivity and Current State
-
-```bash
-echo "Host: $DB_HOST"
-echo "User: $DB_USER"
-echo "DB:   $DB_NAME"
-
-# Record current row count BEFORE migration
-PGPASSWORD="$DB_PASSWORD" psql \
-    -h "$DB_HOST" -p "${DB_PORT:-5432}" -U "$DB_USER" -d "$DB_NAME" \
-    -c "SELECT COUNT(*) FROM dashboard_templates"
 ```
 
 **Document the current row count.** This is your baseline for rollback verification.
