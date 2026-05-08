@@ -18,7 +18,7 @@ Migrate the `dashboard_templates` table from chrome-service DB to widget-layout-
 10. [Step 7: Transfer Files to Local Machine](#10-step-7-transfer-files-to-local-machine)
 11. [Step 8: Launch Debug-Container in Widget-Layout Namespace (Target)](#11-step-8-launch-debug-container-in-widget-layout-namespace-target)
 12. [Step 9: Transfer Files to Target Debug-Container](#12-step-9-transfer-files-to-target-debug-container)
-13. [Step 10: Review the Generated SQL](#13-step-10-review-the-generated-sql)
+13. [Step 10: Run Preflight Check on Target DB](#13-step-10-run-preflight-check-on-target-db)
 14. [Step 11: Import Data into Widget-Layout DB](#14-step-11-import-data-into-widget-layout-db)
 15. [Step 12: Verify the Migration](#15-step-12-verify-the-migration)
 16. [Step 13: Clean Up](#16-step-13-clean-up)

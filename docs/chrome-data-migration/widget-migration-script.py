@@ -102,21 +102,21 @@ def do_preflight_export():
     active = cur.fetchone()["cnt"]
     all_ok &= check("Active dashboard_templates", active > 0, f"{active} rows (deleted_at IS NULL)")
 
-    # 5. Orphaned rows (no matching user_identity)
+    # 5. Orphaned active rows (no matching user_identity)
     cur.execute("""
         SELECT COUNT(*) as cnt FROM dashboard_templates dt
         LEFT JOIN user_identities ui ON dt.user_identity_id = ui.id
-        WHERE ui.id IS NULL
+        WHERE dt.deleted_at IS NULL AND ui.id IS NULL
     """)
     orphaned = cur.fetchone()["cnt"]
     all_ok &= check("Orphaned rows (no user_identity)", orphaned == 0,
-                     f"{orphaned} rows will be dropped by JOIN" if orphaned > 0 else "none")
+                     f"{orphaned} active rows will be dropped by JOIN" if orphaned > 0 else "none")
 
-    # 6. Users with NULL/empty account_id
+    # 6. Active users with NULL/empty account_id
     cur.execute("""
         SELECT COUNT(*) as cnt FROM dashboard_templates dt
         JOIN user_identities ui ON dt.user_identity_id = ui.id
-        WHERE ui.account_id IS NULL OR ui.account_id = ''
+        WHERE dt.deleted_at IS NULL AND (ui.account_id IS NULL OR ui.account_id = '')
     """)
     null_acct = cur.fetchone()["cnt"]
     all_ok &= check("NULL/empty account_id", null_acct == 0,
@@ -126,6 +126,7 @@ def do_preflight_export():
     cur.execute("""
         SELECT COUNT(*) as cnt FROM dashboard_templates dt
         JOIN user_identities ui ON dt.user_identity_id = ui.id
+        WHERE dt.deleted_at IS NULL
     """)
     join_count = cur.fetchone()["cnt"]
     all_ok &= check("Exportable rows (after JOIN)", join_count > 0, f"{join_count} rows")
@@ -181,8 +182,8 @@ def do_preflight_import():
     try:
         cur.execute("BEGIN")
         cur.execute("""
-            INSERT INTO dashboard_templates (user_id, dashboard_name, "default", name, display_name, sm, md, lg, xl)
-            VALUES ('__preflight_test__', '__test__', false, '__test__', '__test__', '[]'::jsonb, '[]'::jsonb, '[]'::jsonb, '[]'::jsonb)
+            INSERT INTO dashboard_templates (user_id, dashboard_name, "default", name, display_name, sm, md, lg, xl, created_at, updated_at, deleted_at)
+            VALUES ('__preflight_test__', '__test__', false, '__test__', '__test__', '[]'::jsonb, '[]'::jsonb, '[]'::jsonb, '[]'::jsonb, NOW(), NOW(), NULL)
         """)
         conn.rollback()
         all_ok &= check("INSERT permission", True, "test row inserted and rolled back")
