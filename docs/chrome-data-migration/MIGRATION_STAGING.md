@@ -81,7 +81,7 @@ The two databases use different schemas for the same conceptual table. The migra
 
 ## 4. Step 1: Obtain Staging Access (app-interface MR)
 
-The `platform-experience` and `platform-experience-services` roles only grant `view` access to the staging namespaces. To run debug-containers (which requires pod create/exec and indirect secret access), a temporary `edit-no-secrets` role is needed.
+The `platform-experience` and `platform-experience-services` roles only grant `view` access to the staging namespaces. To run debug-containers (which requires pod create/exec), a temporary `edit` role is needed.
 
 ### 1.1 Create the Role File
 
@@ -101,19 +101,19 @@ description: |
 
 permissions: []
 
-expirationDate: '2026-06-08'
+expirationDate: '2026-06-10'
 
 access:
 - namespace:
     $ref: /services/insights/chrome-service/namespaces/chrome-service-stage.yml
-  clusterRole: edit-no-secrets
+  clusterRole: edit
 - namespace:
     $ref: /services/insights/widget-layout-backend/namespaces/crcs02ue1-widget-layout-backend-stage.yml
-  clusterRole: edit-no-secrets
+  clusterRole: edit
 ```
 
 Key details:
-- `edit-no-secrets` grants pod create/exec but **not** direct secret read
+- `edit` grants pod create/exec (and secret read, which is acceptable for staging)
 - DB credentials are accessed indirectly via the debug-container pod mounting the secret
 - `expirationDate` is set to 1 month out (2026-06-08); adjust as needed
 - Both namespaces are on `crcs02ue1` cluster

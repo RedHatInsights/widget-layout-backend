@@ -51,7 +51,7 @@ Migrate the `dashboard_templates` table from chrome-service DB to widget-layout-
 
 | Aspect | Staging | Production |
 |--------|---------|------------|
-| **Access type** | `edit-no-secrets` (staging dev role) | Breakglass role (scoped RBAC Role) |
+| **Access type** | `edit` (staging dev role) | Breakglass role (scoped RBAC Role) |
 | **Cluster** | `crcs02ue1` | `crcp01ue1` |
 | **Namespaces** | `chrome-service-stage`, `widget-layout-backend-stage` | `chrome-service-prod`, `widget-layout-backend-prod` |
 | **Read replica requirement** | Not required | Required for InProgress/OnBoarded apps (check with AppSRE) |
@@ -97,7 +97,7 @@ Same as staging. The migration script handles these translations automatically:
 
 ## 4. Step 1: Obtain Production Breakglass Access (app-interface MR)
 
-Production requires a **breakglass role** — `edit-no-secrets` is prohibited on production namespaces per Self-SRE OpenShift Access Standards. Breakglass uses a scoped Kubernetes RBAC Role (not ClusterRole) with explicit permissions.
+Production requires a **breakglass role** — `edit` is prohibited on production namespaces per Self-SRE OpenShift Access Standards. Breakglass uses a scoped Kubernetes RBAC Role (not ClusterRole) with explicit permissions.
 
 ### 4.1 Create the Breakglass RBAC Role Resource
 
