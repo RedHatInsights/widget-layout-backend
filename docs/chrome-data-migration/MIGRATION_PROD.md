@@ -91,6 +91,8 @@ Same as staging. The migration script handles these translations automatically:
 | `updated_at` (timestamp) | `updated_at` (timestamp) | Direct copy |
 | `deleted_at` (timestamp) | `deleted_at` (timestamp) | Direct copy |
 
+> **Note on `x`/`y` vs `cx`/`cy` coordinates:** The widget grid items stored in the `sm`/`md`/`lg`/`xl` JSONB columns use `x`/`y` keys. The widget-layout-backend API also uses `x`/`y` at runtime. The `cx`/`cy` naming is only required in YAML configuration files (ConfigMaps, env vars) because YAML parsers treat bare `y` as a boolean. Since this migration copies JSONB directly between PostgreSQL databases — never passing through a YAML parser — no coordinate key renaming is needed.
+
 ---
 
 ## 4. Step 1: Obtain Production Breakglass Access (app-interface MR)
