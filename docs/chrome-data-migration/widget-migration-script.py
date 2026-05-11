@@ -28,19 +28,35 @@ OUTPUT_FILE = "/tmp/widget_migration.sql"
 
 
 def get_connection():
-    required = ["DB_HOST", "DB_USER", "DB_PASSWORD", "DB_NAME"]
-    missing = [v for v in required if not os.environ.get(v)]
+    # Debug-containers mount secrets as PG* vars; the script originally used DB_*.
+    # Accept both formats: try PG* first (debug-container default), fall back to DB_*.
+    host = os.environ.get("PGHOST") or os.environ.get("DB_HOST")
+    port = os.environ.get("PGPORT") or os.environ.get("DB_PORT", "5432")
+    user = os.environ.get("PGUSER") or os.environ.get("DB_USER")
+    password = os.environ.get("PGPASSWORD") or os.environ.get("DB_PASSWORD")
+    dbname = os.environ.get("PGDATABASE") or os.environ.get("DB_NAME")
+
+    missing = []
+    if not host:
+        missing.append("PGHOST/DB_HOST")
+    if not user:
+        missing.append("PGUSER/DB_USER")
+    if not password:
+        missing.append("PGPASSWORD/DB_PASSWORD")
+    if not dbname:
+        missing.append("PGDATABASE/DB_NAME")
+
     if missing:
         print(f"ERROR: Missing env vars: {', '.join(missing)}")
-        print("Is the DB secret mounted?")
+        print("Is the DB secret mounted? Run: env | grep -E 'PG|DB_'")
         sys.exit(1)
 
     return psycopg2.connect(
-        host=os.environ["DB_HOST"],
-        port=os.environ.get("DB_PORT", "5432"),
-        user=os.environ["DB_USER"],
-        password=os.environ["DB_PASSWORD"],
-        dbname=os.environ["DB_NAME"],
+        host=host,
+        port=port,
+        user=user,
+        password=password,
+        dbname=dbname,
     )
 
 

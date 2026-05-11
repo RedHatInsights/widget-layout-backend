@@ -68,6 +68,7 @@ Migrate the `dashboard_templates` table from chrome-service DB to widget-layout-
 - The breakglass MR merged (see Step 1)
 - The migration script `widget-migration-script.py` available locally (same script used in staging)
 - Staging migration results reviewed and confirmed correct
+- Read the "Lessons Learned" section in `MIGRATION_STAGING.md` before proceeding
 
 ---
 
@@ -299,13 +300,15 @@ oc process --local \
 | oc -n chrome-service-prod apply -f -
 ```
 
-Wait for the pod to be ready:
+Wait for the deployment to roll out and get the pod name:
 
 ```bash
-oc -n chrome-service-prod get pod debug-container -w
-```
+oc -n chrome-service-prod rollout status deployment/debug-container --timeout=120s
 
-Wait until `STATUS` shows `Running`. Press `Ctrl+C` to stop watching.
+# Get the actual pod name (it has a hash suffix)
+SOURCE_POD=$(oc -n chrome-service-prod get pods -l app=debug-container -o jsonpath='{.items[0].metadata.name}')
+echo "Source pod: $SOURCE_POD"
+```
 
 ---
 
@@ -314,13 +317,13 @@ Wait until `STATUS` shows `Running`. Press `Ctrl+C` to stop watching.
 ### 9.1 Copy the Migration Script into the Debug-Container
 
 ```bash
-oc -n chrome-service-prod cp ./widget-migration-script.py debug-container:/tmp/widget-migration-script.py
+oc -n chrome-service-prod cp ./widget-migration-script.py "$SOURCE_POD:/tmp/widget-migration-script.py"
 ```
 
 ### 9.2 Exec into the Debug-Container
 
 ```bash
-oc -n chrome-service-prod exec -it debug-container -- bash
+oc -n chrome-service-prod exec -it "$SOURCE_POD" -- bash
 ```
 
 ### 9.3 Run Preflight Check
@@ -340,8 +343,10 @@ This checks:
 
 If the DB secret is not mounted correctly:
 ```bash
-env | grep DB_
+env | grep -E 'PG|DB_'
 ```
+
+> **Note:** The debug-container mounts the secret as `PG*` env vars (`PGHOST`, `PGUSER`, etc.), not `DB_*`. The migration script accepts both formats automatically.
 
 ### 9.4 Run the Export
 
@@ -383,7 +388,7 @@ exit
 ## 10. Step 7: Transfer Files to Local Machine
 
 ```bash
-oc -n chrome-service-prod cp debug-container:/tmp/widget_migration.sql ./widget_migration_prod.sql
+oc -n chrome-service-prod cp "$SOURCE_POD:/tmp/widget_migration.sql" ./widget_migration_prod.sql
 ```
 
 Verify the file was copied:
@@ -406,21 +411,23 @@ oc process --local \
 | oc -n widget-layout-backend-prod apply -f -
 ```
 
-Wait for the pod to be ready:
+Wait for the deployment to roll out and get the pod name:
 
 ```bash
-oc -n widget-layout-backend-prod get pod debug-container -w
-```
+oc -n widget-layout-backend-prod rollout status deployment/debug-container --timeout=120s
 
-Wait until `STATUS` shows `Running`. Press `Ctrl+C` to stop watching.
+# Get the actual pod name
+TARGET_POD=$(oc -n widget-layout-backend-prod get pods -l app=debug-container -o jsonpath='{.items[0].metadata.name}')
+echo "Target pod: $TARGET_POD"
+```
 
 ---
 
 ## 12. Step 9: Transfer Files to Target Debug-Container
 
 ```bash
-oc -n widget-layout-backend-prod cp ./widget_migration_prod.sql debug-container:/tmp/widget_migration.sql
-oc -n widget-layout-backend-prod cp ./widget-migration-script.py debug-container:/tmp/widget-migration-script.py
+oc -n widget-layout-backend-prod cp ./widget_migration_prod.sql "$TARGET_POD:/tmp/widget_migration.sql"
+oc -n widget-layout-backend-prod cp ./widget-migration-script.py "$TARGET_POD:/tmp/widget-migration-script.py"
 ```
 
 ---
@@ -430,7 +437,7 @@ oc -n widget-layout-backend-prod cp ./widget-migration-script.py debug-container
 **This check is mandatory for production.** Do not skip.
 
 ```bash
-oc -n widget-layout-backend-prod exec -it debug-container -- bash
+oc -n widget-layout-backend-prod exec -it "$TARGET_POD" -- bash
 ```
 
 ```bash
@@ -446,6 +453,11 @@ This checks:
 
 **STOP if any check shows `[FAIL]`.** Investigate before proceeding.
 
+> **If "Target table empty" fails:** Inspect existing rows to determine if they are test data or real user data. In production, be cautious about deleting existing rows — verify with the team first:
+> ```bash
+> psql -c "SELECT id, user_id, dashboard_name, created_at FROM dashboard_templates"
+> ```
+
 ```bash
 exit
 ```
@@ -457,7 +469,7 @@ exit
 ### 14.1 Exec into the Target Debug-Container
 
 ```bash
-oc -n widget-layout-backend-prod exec -it debug-container -- bash
+oc -n widget-layout-backend-prod exec -it "$TARGET_POD" -- bash
 ```
 
 **Document the current row count.** This is your baseline for rollback verification.
@@ -495,33 +507,29 @@ exit
 
 ## 15. Step 12: Verify the Migration
 
-### 15.1 Via Debug-Container
+### 15.1 Via Debug-Container (primary method)
 
 ```bash
-oc -n widget-layout-backend-prod exec -it debug-container -- bash
+oc -n widget-layout-backend-prod exec -it "$TARGET_POD" -- bash
 ```
+
+The debug-container sets `PGHOST`, `PGUSER`, `PGPASSWORD`, `PGDATABASE` automatically, so `psql` works without flags:
 
 ```bash
 # Total count — should equal pre-migration count + exported rows
-PGPASSWORD="$DB_PASSWORD" psql \
-    -h "$DB_HOST" -p "${DB_PORT:-5432}" -U "$DB_USER" -d "$DB_NAME" \
-    -c "SELECT COUNT(*) FROM dashboard_templates"
+psql -c "SELECT COUNT(*) FROM dashboard_templates"
 
 # Sample rows — verify user_id and dashboard_name are populated
-PGPASSWORD="$DB_PASSWORD" psql \
-    -h "$DB_HOST" -p "${DB_PORT:-5432}" -U "$DB_USER" -d "$DB_NAME" \
-    -c "SELECT id, user_id, dashboard_name, name, display_name, \"default\" FROM dashboard_templates LIMIT 10"
+psql -c "SELECT id, user_id, dashboard_name, name, display_name, \"default\" FROM dashboard_templates LIMIT 10"
 
 # Check no NULL/empty user_ids (should return 0)
-PGPASSWORD="$DB_PASSWORD" psql \
-    -h "$DB_HOST" -p "${DB_PORT:-5432}" -U "$DB_USER" -d "$DB_NAME" \
-    -c "SELECT COUNT(*) FROM dashboard_templates WHERE user_id IS NULL OR user_id = ''"
+psql -c "SELECT COUNT(*) FROM dashboard_templates WHERE user_id IS NULL OR user_id = ''"
 
-# Check dashboard_name matches display_name for all migrated rows
-PGPASSWORD="$DB_PASSWORD" psql \
-    -h "$DB_HOST" -p "${DB_PORT:-5432}" -U "$DB_USER" -d "$DB_NAME" \
-    -c "SELECT COUNT(*) FROM dashboard_templates WHERE dashboard_name != display_name"
-# Should be 0 for migrated rows
+# Check dashboard_name matches display_name for all migrated rows (should be 0)
+psql -c "SELECT COUNT(*) FROM dashboard_templates WHERE dashboard_name != display_name"
+
+# Verify JSON columns are populated
+psql -c "SELECT COUNT(*) FROM dashboard_templates WHERE sm IS NOT NULL AND sm::text != '[]'"
 ```
 
 ```bash
@@ -554,18 +562,18 @@ curl -H "Authorization: Bearer $TOKEN" "$GABI/query" \
 
 ### 16.1 Delete Debug-Containers (MANDATORY)
 
-Production debug-containers must be removed immediately after use.
+Production debug-containers must be removed immediately after use. Delete the Deployment (not just the pod — the Deployment would recreate it):
 
 ```bash
-oc -n chrome-service-prod delete pod debug-container
-oc -n widget-layout-backend-prod delete pod debug-container
+oc -n chrome-service-prod delete deployment debug-container
+oc -n widget-layout-backend-prod delete deployment debug-container
 ```
 
 Verify they are gone:
 
 ```bash
-oc -n chrome-service-prod get pod debug-container 2>&1 | grep "not found"
-oc -n widget-layout-backend-prod get pod debug-container 2>&1 | grep "not found"
+oc -n chrome-service-prod get deployment debug-container 2>&1 | grep "not found"
+oc -n widget-layout-backend-prod get deployment debug-container 2>&1 | grep "not found"
 ```
 
 ### 16.2 Clean Up Local Files
@@ -600,11 +608,9 @@ If the data was imported successfully but needs to be removed:
 **Option A: Delete all migrated rows (if target DB was empty before migration)**
 
 ```bash
-oc -n widget-layout-backend-prod exec -it debug-container -- bash
+oc -n widget-layout-backend-prod exec -it "$TARGET_POD" -- bash
 
-PGPASSWORD="$DB_PASSWORD" psql \
-    -h "$DB_HOST" -p "${DB_PORT:-5432}" -U "$DB_USER" -d "$DB_NAME" \
-    -c "DELETE FROM dashboard_templates"
+psql -c "DELETE FROM dashboard_templates"
 ```
 
 **Option B: Delete only migrated rows (if target DB had pre-existing data)**
@@ -612,9 +618,7 @@ PGPASSWORD="$DB_PASSWORD" psql \
 Use a timestamp-based filter. The migration preserves original `created_at` timestamps from chrome-service, so you cannot filter by insertion time. Instead, if you recorded the max `id` before migration:
 
 ```bash
-PGPASSWORD="$DB_PASSWORD" psql \
-    -h "$DB_HOST" -p "${DB_PORT:-5432}" -U "$DB_USER" -d "$DB_NAME" \
-    -c "DELETE FROM dashboard_templates WHERE id > <last_pre_migration_id>"
+psql -c "DELETE FROM dashboard_templates WHERE id > <last_pre_migration_id>"
 ```
 
 **Option C: Restore from RDS snapshot**

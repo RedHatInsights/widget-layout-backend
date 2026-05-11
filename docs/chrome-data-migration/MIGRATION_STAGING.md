@@ -55,6 +55,22 @@ Migrate the `dashboard_templates` table from chrome-service DB to widget-layout-
 
 ---
 
+## Lessons Learned (from 2026-05-11 staging run)
+
+These issues were encountered during the first staging migration. The instructions below have been updated to account for them, but they are documented here for awareness:
+
+1. **Debug-container env vars use `PG*` prefix, not `DB_*`**: The debug-container template mounts the DB secret as `PGHOST`, `PGUSER`, `PGPASSWORD`, `PGDATABASE`, `PGPORT` — not `DB_HOST`, `DB_USER`, etc. The migration script has been updated to accept both formats automatically.
+
+2. **Debug-container creates a Deployment, not a bare Pod**: The `oc process` command creates a Deployment, which produces pods with a hash suffix (e.g., `debug-container-cff5b7cb9-gfv9r`). You must look up the actual pod name via label selector before using `oc cp` or `oc exec`. Cleanup must delete the Deployment, not the pod.
+
+3. **Target table may have existing rows**: If the widget-layout-backend API is already deployed in stage, users or tests may have created rows. The preflight-import check will `[FAIL]` on "Target table empty". Clear these rows before importing if they are test data.
+
+4. **No external route for stage API**: The `widget-layout-backend-stage` namespace has no Route, so API-level verification (Step 12.3) is not available in staging. Debug-container psql verification is sufficient.
+
+5. **`psql` reads PG* vars natively**: Inside the debug-container, you can run `psql` without `-h`/`-U`/`-d` flags — it picks up `PGHOST`, `PGUSER`, `PGPASSWORD`, `PGDATABASE` automatically.
+
+---
+
 ## 3. Schema Translation
 
 The two databases use different schemas for the same conceptual table. The migration script handles these translations automatically:
@@ -226,13 +242,15 @@ oc process --local \
 | oc -n chrome-service-stage apply -f -
 ```
 
-Wait for the pod to be ready:
+Wait for the deployment to roll out and get the pod name:
 
 ```bash
-oc -n chrome-service-stage get pod debug-container -w
-```
+oc -n chrome-service-stage rollout status deployment/debug-container --timeout=120s
 
-Wait until `STATUS` shows `Running`. Press `Ctrl+C` to stop watching.
+# Get the actual pod name (it has a hash suffix)
+SOURCE_POD=$(oc -n chrome-service-stage get pods -l app=debug-container -o jsonpath='{.items[0].metadata.name}')
+echo "Source pod: $SOURCE_POD"
+```
 
 ---
 
@@ -241,13 +259,13 @@ Wait until `STATUS` shows `Running`. Press `Ctrl+C` to stop watching.
 ### 9.1 Copy the Migration Script into the Debug-Container
 
 ```bash
-oc -n chrome-service-stage cp ./widget-migration-script.py debug-container:/tmp/widget-migration-script.py
+oc -n chrome-service-stage cp ./widget-migration-script.py "$SOURCE_POD:/tmp/widget-migration-script.py"
 ```
 
 ### 9.2 Exec into the Debug-Container
 
 ```bash
-oc -n chrome-service-stage exec -it debug-container -- bash
+oc -n chrome-service-stage exec -it "$SOURCE_POD" -- bash
 ```
 
 ### 9.3 Run Preflight Check
@@ -267,8 +285,10 @@ All checks must show `[PASS]`. If any show `[FAIL]`, investigate before proceedi
 
 If the DB secret is not mounted correctly:
 ```bash
-env | grep DB_
+env | grep -E 'PG|DB_'
 ```
+
+> **Note:** The debug-container mounts the secret as `PG*` env vars (`PGHOST`, `PGUSER`, etc.), not `DB_*`. The migration script accepts both formats automatically.
 
 ### 9.4 Run the Export
 
@@ -306,10 +326,10 @@ exit
 
 ## 10. Step 7: Transfer Files to Local Machine
 
-Copy the generated SQL and the migration script from the source debug-container to your local machine:
+Copy the generated SQL from the source debug-container to your local machine:
 
 ```bash
-oc -n chrome-service-stage cp debug-container:/tmp/widget_migration.sql ./widget_migration.sql
+oc -n chrome-service-stage cp "$SOURCE_POD:/tmp/widget_migration.sql" ./widget_migration.sql
 ```
 
 Verify the file was copied:
@@ -330,21 +350,23 @@ oc process --local \
 | oc -n widget-layout-backend-stage apply -f -
 ```
 
-Wait for the pod to be ready:
+Wait for the deployment to roll out and get the pod name:
 
 ```bash
-oc -n widget-layout-backend-stage get pod debug-container -w
-```
+oc -n widget-layout-backend-stage rollout status deployment/debug-container --timeout=120s
 
-Wait until `STATUS` shows `Running`. Press `Ctrl+C` to stop watching.
+# Get the actual pod name
+TARGET_POD=$(oc -n widget-layout-backend-stage get pods -l app=debug-container -o jsonpath='{.items[0].metadata.name}')
+echo "Target pod: $TARGET_POD"
+```
 
 ---
 
 ## 12. Step 9: Transfer Files to Target Debug-Container
 
 ```bash
-oc -n widget-layout-backend-stage cp ./widget_migration.sql debug-container:/tmp/widget_migration.sql
-oc -n widget-layout-backend-stage cp ./widget-migration-script.py debug-container:/tmp/widget-migration-script.py
+oc -n widget-layout-backend-stage cp ./widget_migration.sql "$TARGET_POD:/tmp/widget_migration.sql"
+oc -n widget-layout-backend-stage cp ./widget-migration-script.py "$TARGET_POD:/tmp/widget-migration-script.py"
 ```
 
 ---
@@ -352,7 +374,7 @@ oc -n widget-layout-backend-stage cp ./widget-migration-script.py debug-containe
 ## 13. Step 10: Run Preflight Check on Target DB
 
 ```bash
-oc -n widget-layout-backend-stage exec -it debug-container -- bash
+oc -n widget-layout-backend-stage exec -it "$TARGET_POD" -- bash
 ```
 
 ```bash
@@ -368,6 +390,13 @@ This checks:
 
 All checks must show `[PASS]`. If any show `[FAIL]`, investigate before proceeding.
 
+> **If "Target table empty" fails:** The stage API may have created test rows. Verify they are test data, then clear them:
+> ```bash
+> psql -c "SELECT id, user_id, dashboard_name, created_at FROM dashboard_templates"
+> psql -c "DELETE FROM dashboard_templates"
+> ```
+> Re-run preflight-import after clearing.
+
 ```bash
 exit
 ```
@@ -379,7 +408,7 @@ exit
 ### 14.1 Exec into the Target Debug-Container
 
 ```bash
-oc -n widget-layout-backend-stage exec -it debug-container -- bash
+oc -n widget-layout-backend-stage exec -it "$TARGET_POD" -- bash
 ```
 
 ### 14.2 Run the Import
@@ -414,36 +443,37 @@ exit
 
 ## 15. Step 12: Verify the Migration
 
-### 15.1 Via Debug-Container
+### 15.1 Via Debug-Container (primary method)
 
 ```bash
-oc -n widget-layout-backend-stage exec -it debug-container -- bash
+oc -n widget-layout-backend-stage exec -it "$TARGET_POD" -- bash
 ```
 
+The debug-container sets `PGHOST`, `PGUSER`, `PGPASSWORD`, `PGDATABASE` automatically, so `psql` works without flags:
+
 ```bash
-# Total count
-PGPASSWORD="$DB_PASSWORD" psql \
-    -h "$DB_HOST" -p "${DB_PORT:-5432}" -U "$DB_USER" -d "$DB_NAME" \
-    -c "SELECT COUNT(*) FROM dashboard_templates"
+# Total count — must match source export count
+psql -c "SELECT COUNT(*) FROM dashboard_templates"
 
 # Sample a few rows
-PGPASSWORD="$DB_PASSWORD" psql \
-    -h "$DB_HOST" -p "${DB_PORT:-5432}" -U "$DB_USER" -d "$DB_NAME" \
-    -c "SELECT id, user_id, dashboard_name, name, display_name, \"default\" FROM dashboard_templates LIMIT 5"
+psql -c "SELECT id, user_id, dashboard_name, name, display_name, \"default\" FROM dashboard_templates LIMIT 5"
 
 # Check user_id is populated (should return 0)
-PGPASSWORD="$DB_PASSWORD" psql \
-    -h "$DB_HOST" -p "${DB_PORT:-5432}" -U "$DB_USER" -d "$DB_NAME" \
-    -c "SELECT COUNT(*) FROM dashboard_templates WHERE user_id IS NULL OR user_id = ''"
+psql -c "SELECT COUNT(*) FROM dashboard_templates WHERE user_id IS NULL OR user_id = ''"
+
+# Verify JSON columns are populated
+psql -c "SELECT COUNT(*) FROM dashboard_templates WHERE sm IS NOT NULL AND sm::text != '[]'"
 ```
 
 ```bash
 exit
 ```
 
-### 15.2 Via GABI (if available for widget-layout-backend)
+### 15.2 Via GABI (not available for widget-layout-backend in staging)
 
-If you have a GABI instance for widget-layout-backend:
+GABI is not yet configured for widget-layout-backend. Debug-container psql verification (15.1) is sufficient.
+
+If GABI becomes available in the future:
 
 ```bash
 TOKEN="sha256~<your-token>"
@@ -453,12 +483,9 @@ curl -H "Authorization: Bearer $TOKEN" "$GABI/query" \
     -d '{"query": "SELECT COUNT(*) FROM dashboard_templates"}' -s | jq
 ```
 
-### 15.3 Via the Widget-Layout API (if deployed in stage)
+### 15.3 Via the Widget-Layout API (not available in staging)
 
-```bash
-curl -H "x-rh-identity: <base64-encoded-identity>" \
-    https://<stage-api>/api/widget-layout/v1/
-```
+The `widget-layout-backend-stage` namespace has no external Route. This verification method is not available in staging. Skip to cleanup.
 
 ---
 
@@ -466,9 +493,11 @@ curl -H "x-rh-identity: <base64-encoded-identity>" \
 
 ### 16.1 Delete Debug-Containers
 
+The debug-container is a Deployment — delete the Deployment, not just the pod (deleting the pod alone causes the Deployment to recreate it):
+
 ```bash
-oc -n chrome-service-stage delete pod debug-container
-oc -n widget-layout-backend-stage delete pod debug-container
+oc -n chrome-service-stage delete deployment debug-container
+oc -n widget-layout-backend-stage delete deployment debug-container
 ```
 
 ### 16.2 Clean Up Local Files
@@ -501,11 +530,9 @@ The migration script wraps all INSERTs in a `BEGIN`/`COMMIT` transaction. If any
 If the data was imported but needs to be removed:
 
 ```bash
-oc -n widget-layout-backend-stage exec -it debug-container -- bash
+oc -n widget-layout-backend-stage exec -it "$TARGET_POD" -- bash
 
-PGPASSWORD="$DB_PASSWORD" psql \
-    -h "$DB_HOST" -p "${DB_PORT:-5432}" -U "$DB_USER" -d "$DB_NAME" \
-    -c "DELETE FROM dashboard_templates WHERE created_at < '2026-05-08'"
+psql -c "DELETE FROM dashboard_templates WHERE created_at < '2026-05-08'"
 ```
 
 Adjust the `WHERE` clause to target only the migrated rows. Use timestamps or other identifying criteria to avoid deleting post-migration data.
