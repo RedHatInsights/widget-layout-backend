@@ -269,6 +269,23 @@ def do_export():
     rows = cur.fetchall()
     print(f"Fetched {len(rows)} rows (with user_id resolved)")
 
+    # Chrome-service uses bare names (e.g., "landingPage").
+    # Widget-layout uses "{frontendRef}-{name}" (e.g., "landing-landingPage").
+    NAME_MAP = {
+        "landingPage": "landing-landingPage",
+    }
+    unmapped = set()
+    for row in rows:
+        original = row["name"]
+        if original in NAME_MAP:
+            row["name"] = NAME_MAP[original]
+        else:
+            unmapped.add(original)
+    if unmapped:
+        print(f"ERROR: {len(unmapped)} unmapped name values: {unmapped}")
+        print("Add these to NAME_MAP before proceeding.")
+        sys.exit(1)
+
     bad_rows = [r for r in rows if not r["user_id"]]
     if bad_rows:
         print(f"ERROR: {len(bad_rows)} rows have NULL/empty user_id:")

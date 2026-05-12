@@ -81,7 +81,7 @@ The two databases use different schemas for the same conceptual table. The migra
 | `user_identity_id` (uint, FK) | `user_id` (string) | JOIN `user_identities` table to resolve `account_id` |
 | _(does not exist)_ | `dashboard_name` (string) | Copied from `display_name` |
 | `default` (bool) | `default` (bool) | Direct copy |
-| `name` (string, embedded) | `name` (string, embedded) | Direct copy |
+| `name` (string, embedded) | `name` (string, embedded) | Translated via NAME_MAP (e.g., `landingPage` → `landing-landingPage`) |
 | `display_name` (string, embedded) | `display_name` (string, embedded) | Direct copy |
 | `sm` (JSON) | `sm` (JSON) | Direct copy |
 | `md` (JSON) | `md` (JSON) | Direct copy |
