@@ -326,8 +326,8 @@ def do_export():
     print()
     print("Next steps:")
     print(f"  1. Review {OUTPUT_FILE}")
-    print(f"  2. Copy out: oc -n chrome-service-stage cp debug-container:{OUTPUT_FILE} ./widget_migration.sql")
-    print(f"  3. Copy in:  oc -n widget-layout-backend-stage cp ./widget_migration.sql debug-container:{OUTPUT_FILE}")
+    print(f"  2. Copy out: oc cp <source-pod>:{OUTPUT_FILE} ./widget_migration.sql")
+    print(f"  3. Copy in:  oc cp ./widget_migration.sql <target-pod>:{OUTPUT_FILE}")
     print("  4. Run import: python3 widget-migration-script.py import")
 
     cur.close()

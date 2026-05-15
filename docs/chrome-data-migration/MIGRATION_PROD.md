@@ -348,7 +348,17 @@ env | grep -E 'PG|DB_'
 
 > **Note:** The debug-container mounts the secret as `PG*` env vars (`PGHOST`, `PGUSER`, etc.), not `DB_*`. The migration script accepts both formats automatically.
 
-### 9.4 Run the Export
+### 9.4 Verify NAME_MAP Completeness
+
+The migration script translates template names via `NAME_MAP`. Before exporting, verify that all distinct names in production are covered:
+
+```sql
+SELECT DISTINCT name FROM dashboard_templates WHERE deleted_at IS NULL;
+```
+
+Compare the output against `NAME_MAP` in `widget-migration-script.py`. If any names are missing, add them to the map before proceeding — the export will abort if it encounters an unmapped name.
+
+### 9.5 Run the Export
 
 ```bash
 python3 /tmp/widget-migration-script.py export
@@ -361,7 +371,7 @@ Fetched N rows (with user_id resolved)
 Generated N INSERT statements in /tmp/widget_migration.sql
 ```
 
-### 9.5 Verify Export Data
+### 9.6 Verify Export Data
 
 ```bash
 # Check row count matches
@@ -377,7 +387,7 @@ grep "VALUES (''" /tmp/widget_migration.sql | wc -l
 
 **STOP if any NULL user_ids are found.** This means some `user_identity_id` values don't have matching `user_identities` rows. Investigate before proceeding.
 
-### 9.6 Exit the Container
+### 9.7 Exit the Container
 
 ```bash
 exit
@@ -471,6 +481,8 @@ exit
 ```bash
 oc -n widget-layout-backend-prod exec -it "$TARGET_POD" -- bash
 ```
+
+### 14.2 Document Baseline Row Count
 
 **Document the current row count.** This is your baseline for rollback verification.
 
