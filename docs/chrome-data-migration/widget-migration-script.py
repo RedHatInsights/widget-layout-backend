@@ -302,7 +302,7 @@ def do_preflight_import():
         if not found_insert_count:
             all_ok &= check("INSERT count matches export", False, "INSERT_COUNT missing in meta file")
     elif sql_exists:
-        check(f"Meta file ({META_FILE})", False, "not found — copy it alongside the SQL file to enable integrity check")
+        all_ok &= check(f"Meta file ({META_FILE})", False, "not found — copy it alongside the SQL file to enable integrity check")
 
     cur.close()
     conn.close()
