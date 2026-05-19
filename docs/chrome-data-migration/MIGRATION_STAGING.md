@@ -71,6 +71,8 @@ These issues were encountered during the first staging migration. The instructio
 
 6. **Widget item `"i"` fields must be transformed during migration**: Chrome-service stores widget item identifiers in `"shortKey#shortKey"` format (e.g., `"rhel#rhel"`), while widget-layout-backend uses `"{scope}-{module}"` format (e.g., `"landing-./RhelWidget"`). The migration script handles this via `WIDGET_ID_MAP` during export. Without this transformation, the frontend cannot match template items to widget definitions from the `/widget-mapping` endpoint.
 
+7. **`oc cp` and pipe-based transfers silently truncate large files**: The exported SQL file can be ~9.5MB. `oc cp` may fail with `unexpected EOF`, and the fallback `oc exec cat > file` silently truncates the output with no error (e.g., 1362 of 1903 rows transferred). Use base64 encoding for reliable transfers. The migration script now writes a `.meta` file with the expected INSERT count so `preflight-import` can detect truncation automatically.
+
 ---
 
 ## 3. Schema Translation
@@ -332,17 +334,28 @@ exit
 
 ## 10. Step 7: Transfer Files to Local Machine
 
-Copy the generated SQL from the source debug-container to your local machine:
+> **WARNING:** `oc cp` and `oc exec cat > file` can silently truncate large files (~9.5MB+). Use the base64 method below to ensure complete transfer.
+
+Transfer the SQL and metadata files from the source debug-container:
 
 ```bash
-oc -n chrome-service-stage cp "$SOURCE_POD:/tmp/widget_migration.sql" ./widget_migration.sql
+# Transfer SQL file via base64 (reliable for large files)
+oc -n chrome-service-stage exec "$SOURCE_POD" -- base64 /tmp/widget_migration.sql > ./widget_migration.sql.b64
+base64 -D -i ./widget_migration.sql.b64 -o ./widget_migration.sql
+rm ./widget_migration.sql.b64
+
+# Transfer metadata file (small, plain copy is fine)
+oc -n chrome-service-stage exec "$SOURCE_POD" -- cat /tmp/widget_migration.meta > ./widget_migration.meta
 ```
 
-Verify the file was copied:
+> **Note:** On Linux, use `base64 -d` instead of `base64 -D`.
+
+Verify the file was transferred completely:
 
 ```bash
-head -20 ./widget_migration.sql
 grep -c "^INSERT" ./widget_migration.sql
+cat ./widget_migration.meta
+# INSERT count must match the count in the .meta file
 ```
 
 ---
@@ -371,8 +384,23 @@ echo "Target pod: $TARGET_POD"
 ## 12. Step 9: Transfer Files to Target Debug-Container
 
 ```bash
-oc -n widget-layout-backend-stage cp ./widget_migration.sql "$TARGET_POD:/tmp/widget_migration.sql"
-oc -n widget-layout-backend-stage cp ./widget-migration-script.py "$TARGET_POD:/tmp/widget-migration-script.py"
+# Transfer SQL file via base64 (reliable for large files)
+base64 -i ./widget_migration.sql | oc -n widget-layout-backend-stage exec -i "$TARGET_POD" -- bash -c 'base64 -d > /tmp/widget_migration.sql'
+
+# Transfer metadata file
+cat ./widget_migration.meta | oc -n widget-layout-backend-stage exec -i "$TARGET_POD" -- bash -c 'cat > /tmp/widget_migration.meta'
+
+# Transfer migration script
+cat ./widget-migration-script.py | oc -n widget-layout-backend-stage exec -i "$TARGET_POD" -- bash -c 'cat > /tmp/widget-migration-script.py'
+```
+
+> **Note:** On Linux, use `base64` (no `-i` flag) instead of `base64 -i`.
+
+Verify INSERT count on the target pod:
+
+```bash
+oc -n widget-layout-backend-stage exec "$TARGET_POD" -- grep -c "^INSERT" /tmp/widget_migration.sql
+# Must match the count from the export step
 ```
 
 ---
@@ -423,9 +451,15 @@ oc -n widget-layout-backend-stage exec -it "$TARGET_POD" -- bash
 python3 /tmp/widget-migration-script.py import
 ```
 
+Or skip the interactive confirmation prompt:
+
+```bash
+python3 /tmp/widget-migration-script.py import --yes
+```
+
 The script will:
 1. Show the number of INSERT statements found
-2. Ask for confirmation: `Proceed with import? (y/N):`
+2. Ask for confirmation (unless `--yes` is passed): `Proceed with import? (y/N):`
 3. Type `y` and press Enter
 4. Execute all INSERTs inside a transaction (auto-rollback on any error)
 5. Print the final row count in the target table
@@ -515,7 +549,7 @@ oc -n widget-layout-backend-stage delete deployment debug-container
 ### 16.2 Clean Up Local Files
 
 ```bash
-rm ./widget_migration.sql
+rm ./widget_migration.sql ./widget_migration.meta
 ```
 
 ### 16.3 Remove Staging Dev Role (after migration is verified)

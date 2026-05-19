@@ -27,6 +27,7 @@ import psycopg2
 import psycopg2.extras
 
 OUTPUT_FILE = "/tmp/widget_migration.sql"
+META_FILE = "/tmp/widget_migration.meta"
 
 # Chrome-service widget IDs -> widget-layout-backend FEO widget IDs.
 # Source: docs/WIDGET_MIGRATION.md
@@ -278,6 +279,23 @@ def do_preflight_import():
     else:
         all_ok &= check(f"SQL file exists ({OUTPUT_FILE})", False, "copy it from source debug-container first")
 
+    # 7. Cross-check against export metadata (catches truncated file transfers)
+    meta_exists = os.path.exists(META_FILE)
+    if meta_exists and sql_exists:
+        with open(META_FILE) as f:
+            for line in f:
+                if line.startswith("INSERT_COUNT="):
+                    expected = int(line.strip().split("=", 1)[1])
+                    match = insert_count == expected
+                    all_ok &= check(
+                        "INSERT count matches export",
+                        match,
+                        f"expected {expected}, got {insert_count} — file may be truncated" if not match else f"{insert_count} matches",
+                    )
+                    break
+    elif sql_exists:
+        check(f"Meta file ({META_FILE})", False, "not found — copy it alongside the SQL file to enable integrity check")
+
     cur.close()
     conn.close()
 
@@ -389,6 +407,11 @@ def do_export():
 
     insert_count = sum(1 for line in open(OUTPUT_FILE) if line.startswith("INSERT"))
     print(f"Generated {insert_count} INSERT statements in {OUTPUT_FILE}")
+
+    with open(META_FILE, "w") as f:
+        f.write(f"INSERT_COUNT={insert_count}\n")
+    print(f"Wrote expected count to {META_FILE}")
+
     print()
     print("Next steps:")
     print(f"  1. Review {OUTPUT_FILE}")
@@ -400,7 +423,7 @@ def do_export():
     conn.close()
 
 
-def do_import():
+def do_import(auto_confirm=False):
     if not os.path.exists(OUTPUT_FILE):
         print(f"ERROR: {OUTPUT_FILE} not found.")
         print("Copy it from the export debug-container first.")
@@ -412,10 +435,13 @@ def do_import():
     insert_count = sql.count("INSERT INTO")
     print(f"Found {insert_count} INSERT statements in {OUTPUT_FILE}")
 
-    confirm = input("Proceed with import? (y/N): ").strip().lower()
-    if confirm != "y":
-        print("Aborted.")
-        return
+    if auto_confirm:
+        print("--yes flag set, skipping confirmation.")
+    else:
+        confirm = input("Proceed with import? (y/N): ").strip().lower()
+        if confirm != "y":
+            print("Aborted.")
+            return
 
     conn = get_connection()
     cur = conn.cursor()
@@ -442,7 +468,8 @@ def do_import():
 
 if __name__ == "__main__":
     commands = ("preflight-export", "preflight-import", "export", "import")
-    if len(sys.argv) != 2 or sys.argv[1] not in commands:
+    cmd = sys.argv[1] if len(sys.argv) >= 2 else None
+    if cmd not in commands:
         print("Usage: python3 widget-migration-script.py <command>")
         print()
         print("  preflight-export  - Run inside chrome-service debug-container")
@@ -454,11 +481,11 @@ if __name__ == "__main__":
         print("  export            - Run inside chrome-service debug-container")
         print("                      Generates SQL file from source DB")
         print()
-        print("  import            - Run inside widget-layout-backend debug-container")
+        print("  import [--yes]    - Run inside widget-layout-backend debug-container")
         print("                      Executes SQL file against target DB")
+        print("                      --yes skips interactive confirmation")
         sys.exit(1)
 
-    cmd = sys.argv[1]
     if cmd == "preflight-export":
         do_preflight_export()
     elif cmd == "preflight-import":
@@ -466,4 +493,5 @@ if __name__ == "__main__":
     elif cmd == "export":
         do_export()
     else:
-        do_import()
+        auto_confirm = "--yes" in sys.argv[2:]
+        do_import(auto_confirm=auto_confirm)

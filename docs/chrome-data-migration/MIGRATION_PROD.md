@@ -400,15 +400,28 @@ exit
 
 ## 10. Step 7: Transfer Files to Local Machine
 
+> **WARNING:** `oc cp` and `oc exec cat > file` can silently truncate large files (~9.5MB+). Use the base64 method below to ensure complete transfer. See "Lessons Learned" in `MIGRATION_STAGING.md` for details.
+
+Transfer the SQL and metadata files from the source debug-container:
+
 ```bash
-oc -n chrome-service-prod cp "$SOURCE_POD:/tmp/widget_migration.sql" ./widget_migration_prod.sql
+# Transfer SQL file via base64 (reliable for large files)
+oc -n chrome-service-prod exec "$SOURCE_POD" -- base64 /tmp/widget_migration.sql > ./widget_migration_prod.sql.b64
+base64 -D -i ./widget_migration_prod.sql.b64 -o ./widget_migration_prod.sql
+rm ./widget_migration_prod.sql.b64
+
+# Transfer metadata file (small, plain copy is fine)
+oc -n chrome-service-prod exec "$SOURCE_POD" -- cat /tmp/widget_migration.meta > ./widget_migration_prod.meta
 ```
 
-Verify the file was copied:
+> **Note:** On Linux, use `base64 -d` instead of `base64 -D`.
+
+Verify the file was transferred completely:
 
 ```bash
-head -20 ./widget_migration_prod.sql
 grep -c "^INSERT" ./widget_migration_prod.sql
+cat ./widget_migration_prod.meta
+# INSERT count must match the count in the .meta file
 ```
 
 **Recommended:** Compare prod row count with staging to ensure they are in the expected ratio. If prod has significantly fewer or more rows than expected, investigate.
@@ -439,8 +452,23 @@ echo "Target pod: $TARGET_POD"
 ## 12. Step 9: Transfer Files to Target Debug-Container
 
 ```bash
-oc -n widget-layout-backend-prod cp ./widget_migration_prod.sql "$TARGET_POD:/tmp/widget_migration.sql"
-oc -n widget-layout-backend-prod cp ./widget-migration-script.py "$TARGET_POD:/tmp/widget-migration-script.py"
+# Transfer SQL file via base64 (reliable for large files)
+base64 -i ./widget_migration_prod.sql | oc -n widget-layout-backend-prod exec -i "$TARGET_POD" -- bash -c 'base64 -d > /tmp/widget_migration.sql'
+
+# Transfer metadata file
+cat ./widget_migration_prod.meta | oc -n widget-layout-backend-prod exec -i "$TARGET_POD" -- bash -c 'cat > /tmp/widget_migration.meta'
+
+# Transfer migration script
+cat ./widget-migration-script.py | oc -n widget-layout-backend-prod exec -i "$TARGET_POD" -- bash -c 'cat > /tmp/widget-migration-script.py'
+```
+
+> **Note:** On Linux, use `base64` (no `-i` flag) instead of `base64 -i`.
+
+Verify INSERT count on the target pod:
+
+```bash
+oc -n widget-layout-backend-prod exec "$TARGET_POD" -- grep -c "^INSERT" /tmp/widget_migration.sql
+# Must match the count from the export step
 ```
 
 ---
@@ -495,9 +523,15 @@ oc -n widget-layout-backend-prod exec -it "$TARGET_POD" -- bash
 python3 /tmp/widget-migration-script.py import
 ```
 
+Or skip the interactive confirmation prompt:
+
+```bash
+python3 /tmp/widget-migration-script.py import --yes
+```
+
 The script will:
 1. Show the number of INSERT statements found
-2. Ask for confirmation: `Proceed with import? (y/N):`
+2. Ask for confirmation (unless `--yes` is passed): `Proceed with import? (y/N):`
 3. **Double-check the count matches your export count before typing `y`**
 4. Type `y` and press Enter
 5. Execute all INSERTs inside a transaction (auto-rollback on any error)
@@ -600,7 +634,7 @@ oc -n widget-layout-backend-prod get deployment debug-container 2>&1 | grep "not
 ### 16.2 Clean Up Local Files
 
 ```bash
-rm ./widget_migration_prod.sql
+rm ./widget_migration_prod.sql ./widget_migration_prod.meta
 ```
 
 ### 16.3 Remove Breakglass Role
