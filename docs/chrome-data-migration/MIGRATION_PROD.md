@@ -547,10 +547,10 @@ psql -c "SELECT COUNT(*) FROM dashboard_templates WHERE dashboard_name != displa
 psql -c "SELECT COUNT(*) FROM dashboard_templates WHERE sm IS NOT NULL AND sm::text != '[]'"
 
 # Verify widget IDs are in FEO format (should show "landing-./RhelWidget" etc., not "rhel#rhel")
-psql -c "SELECT id, sm->0->>'i' AS first_widget_id FROM dashboard_templates LIMIT 5"
+psql -c "SELECT id, sm->0->>'i' AS sm_first, md->0->>'i' AS md_first, lg->0->>'i' AS lg_first, xl->0->>'i' AS xl_first FROM dashboard_templates LIMIT 5"
 
-# Confirm no old-format IDs remain (should return 0)
-psql -c "SELECT COUNT(*) FROM dashboard_templates WHERE sm::text LIKE '%#%'"
+# Confirm no old-format IDs remain in any JSONB column (should return 0)
+psql -c "SELECT COUNT(*) FROM dashboard_templates WHERE sm::text LIKE '%#%' OR md::text LIKE '%#%' OR lg::text LIKE '%#%' OR xl::text LIKE '%#%'"
 ```
 
 ```bash

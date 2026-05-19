@@ -110,8 +110,11 @@ def transform_widget_ids(items):
         if not isinstance(item, dict) or "i" not in item:
             continue
         raw_id = item["i"]
+        if not isinstance(raw_id, str):
+            print(f"  WARNING: skipping non-string widget ID: {raw_id!r} (type={type(raw_id).__name__})")
+            continue
         # Strip "#suffix" if present (chrome-service uses "key#key" format)
-        short_key = raw_id.split("#")[0]
+        short_key = raw_id.split("#", 1)[0]
         if short_key in WIDGET_ID_MAP:
             item["i"] = WIDGET_ID_MAP[short_key]
         else:
@@ -347,7 +350,7 @@ def do_export():
         cur.close()
         conn.close()
         sys.exit(1)
-    print(f"Transformed widget IDs in JSONB columns (sm/md/lg/xl)")
+    print("Transformed widget IDs in JSONB columns (sm/md/lg/xl)")
 
     bad_rows = [r for r in rows if not r["user_id"]]
     if bad_rows:
