@@ -84,15 +84,17 @@ Same as staging. The migration script handles these translations automatically:
 | `default` (bool) | `default` (bool) | Direct copy |
 | `name` (string, embedded) | `name` (string, embedded) | Translated via NAME_MAP (e.g., `landingPage` → `landing-landingPage`) |
 | `display_name` (string, embedded) | `display_name` (string, embedded) | Direct copy |
-| `sm` (JSON) | `sm` (JSON) | Direct copy |
-| `md` (JSON) | `md` (JSON) | Direct copy |
-| `lg` (JSON) | `lg` (JSON) | Direct copy |
-| `xl` (JSON) | `xl` (JSON) | Direct copy |
+| `sm` (JSON) | `sm` (JSON) | Widget item `"i"` fields transformed via WIDGET_ID_MAP (e.g., `rhel#rhel` → `landing-./RhelWidget`) |
+| `md` (JSON) | `md` (JSON) | Widget item `"i"` fields transformed via WIDGET_ID_MAP |
+| `lg` (JSON) | `lg` (JSON) | Widget item `"i"` fields transformed via WIDGET_ID_MAP |
+| `xl` (JSON) | `xl` (JSON) | Widget item `"i"` fields transformed via WIDGET_ID_MAP |
 | `created_at` (timestamp) | `created_at` (timestamp) | Direct copy |
 | `updated_at` (timestamp) | `updated_at` (timestamp) | Direct copy |
 | `deleted_at` (timestamp) | `deleted_at` (timestamp) | Direct copy |
 
 > **Note on `x`/`y` vs `cx`/`cy` coordinates:** The widget grid items stored in the `sm`/`md`/`lg`/`xl` JSONB columns use `x`/`y` keys. The widget-layout-backend API also uses `x`/`y` at runtime. The `cx`/`cy` naming is only required in YAML configuration files (ConfigMaps, env vars) because YAML parsers treat bare `y` as a boolean. Since this migration copies JSONB directly between PostgreSQL databases — never passing through a YAML parser — no coordinate key renaming is needed.
+>
+> **Note on widget item `"i"` field transformation:** Chrome-service stores widget item identifiers in `"shortKey#shortKey"` format (e.g., `"rhel#rhel"`), while widget-layout-backend uses `"{scope}-{module}"` format (e.g., `"landing-./RhelWidget"`). The migration script transforms these via `WIDGET_ID_MAP` during export. The full mapping is documented in `docs/WIDGET_MIGRATION.md`.
 
 ---
 
@@ -368,6 +370,7 @@ Expected output:
 ```
 Found N active dashboard_templates rows
 Fetched N rows (with user_id resolved)
+Transformed widget IDs in JSONB columns (sm/md/lg/xl)
 Generated N INSERT statements in /tmp/widget_migration.sql
 ```
 
@@ -542,6 +545,12 @@ psql -c "SELECT COUNT(*) FROM dashboard_templates WHERE dashboard_name != displa
 
 # Verify JSON columns are populated
 psql -c "SELECT COUNT(*) FROM dashboard_templates WHERE sm IS NOT NULL AND sm::text != '[]'"
+
+# Verify widget IDs are in FEO format (should show "landing-./RhelWidget" etc., not "rhel#rhel")
+psql -c "SELECT id, sm->0->>'i' AS first_widget_id FROM dashboard_templates LIMIT 5"
+
+# Confirm no old-format IDs remain (should return 0)
+psql -c "SELECT COUNT(*) FROM dashboard_templates WHERE sm::text LIKE '%#%'"
 ```
 
 ```bash

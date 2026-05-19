@@ -7,6 +7,8 @@ Schema translation:
   chrome-service.user_identity_id (uint FK) -> widget-layout.user_id (string)
     resolved via JOIN on user_identities.account_id
   chrome-service.display_name -> widget-layout.dashboard_name (copy)
+  chrome-service.sm/md/lg/xl JSONB "i" fields -> widget-layout FEO widget IDs
+    e.g., "rhel#rhel" -> "landing-./RhelWidget" (see WIDGET_ID_MAP)
 
 Usage:
   1. Copy this script into chrome-service debug-container
@@ -25,6 +27,29 @@ import psycopg2
 import psycopg2.extras
 
 OUTPUT_FILE = "/tmp/widget_migration.sql"
+
+# Chrome-service widget IDs -> widget-layout-backend FEO widget IDs.
+# Source: docs/WIDGET_MIGRATION.md
+# Chrome-service stores "i" values as "shortKey#shortKey" (e.g., "rhel#rhel").
+# Widget-layout-backend expects "{scope}-{module}" (e.g., "landing-./RhelWidget").
+WIDGET_ID_MAP = {
+    "acs":                 "landing-./AcsWidget",
+    "ansible":             "landing-./AnsibleWidget",
+    "edge":                "landing-./EdgeWidget",
+    "exploreCapabilities": "landing-./ExploreCapabilities",
+    "favoriteServices":    "chrome-./DashboardFavorites",
+    "imageBuilder":        "landing-./ImageBuilderWidget",
+    "integrations":        "sources-./IntegrationsWidget",
+    "learningResources":   "learningResources-./BookmarkedLearningResourcesWidget",
+    "notificationsEvents": "notifications-./DashboardWidget",
+    "openshift":           "landing-./OpenShiftWidget",
+    "openshiftAi":         "landing-./OpenShiftAiWidget",
+    "quay":                "landing-./QuayWidget",
+    "recentlyVisited":     "landing-./RecentlyVisited",
+    "rhel":                "landing-./RhelWidget",
+    "subscriptions":       "subscriptionInventory-./SubscriptionsWidget",
+    "supportCases":        "landing-./SupportCaseWidget",
+}
 
 
 def get_connection():
@@ -69,6 +94,29 @@ def sql_value(val):
         return "'" + json.dumps(val).replace("'", "''") + "'::jsonb"
     s = str(val).replace("'", "''")
     return f"'{s}'"
+
+
+def transform_widget_ids(items):
+    """Transform widget item "i" fields from chrome-service to widget-layout format.
+
+    Chrome-service format: "shortKey#shortKey" (e.g., "rhel#rhel")
+    Widget-layout format: "scope-./Module" (e.g., "landing-./RhelWidget")
+    """
+    if not isinstance(items, list):
+        return items, set()
+
+    unmapped = set()
+    for item in items:
+        if not isinstance(item, dict) or "i" not in item:
+            continue
+        raw_id = item["i"]
+        # Strip "#suffix" if present (chrome-service uses "key#key" format)
+        short_key = raw_id.split("#")[0]
+        if short_key in WIDGET_ID_MAP:
+            item["i"] = WIDGET_ID_MAP[short_key]
+        else:
+            unmapped.add(raw_id)
+    return items, unmapped
 
 
 def check(label, ok, detail=""):
@@ -285,6 +333,21 @@ def do_export():
         print(f"ERROR: {len(unmapped)} unmapped name values: {unmapped}")
         print("Add these to NAME_MAP before proceeding.")
         sys.exit(1)
+
+    # Transform widget item "i" fields in JSONB columns (sm, md, lg, xl)
+    all_unmapped_ids = set()
+    for row in rows:
+        for col in ("sm", "md", "lg", "xl"):
+            if row[col] is not None:
+                row[col], unmapped = transform_widget_ids(row[col])
+                all_unmapped_ids |= unmapped
+    if all_unmapped_ids:
+        print(f"ERROR: {len(all_unmapped_ids)} unmapped widget IDs in JSONB: {sorted(all_unmapped_ids)}")
+        print("Add these to WIDGET_ID_MAP before proceeding.")
+        cur.close()
+        conn.close()
+        sys.exit(1)
+    print(f"Transformed widget IDs in JSONB columns (sm/md/lg/xl)")
 
     bad_rows = [r for r in rows if not r["user_id"]]
     if bad_rows:
