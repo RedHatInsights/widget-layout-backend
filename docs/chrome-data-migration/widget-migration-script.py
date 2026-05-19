@@ -282,10 +282,16 @@ def do_preflight_import():
     # 7. Cross-check against export metadata (catches truncated file transfers)
     meta_exists = os.path.exists(META_FILE)
     if meta_exists and sql_exists:
+        found_insert_count = False
         with open(META_FILE) as f:
             for line in f:
                 if line.startswith("INSERT_COUNT="):
-                    expected = int(line.strip().split("=", 1)[1])
+                    found_insert_count = True
+                    try:
+                        expected = int(line.strip().split("=", 1)[1])
+                    except ValueError:
+                        all_ok &= check("INSERT count matches export", False, "invalid INSERT_COUNT value in meta file")
+                        break
                     match = insert_count == expected
                     all_ok &= check(
                         "INSERT count matches export",
@@ -293,6 +299,8 @@ def do_preflight_import():
                         f"expected {expected}, got {insert_count} — file may be truncated" if not match else f"{insert_count} matches",
                     )
                     break
+        if not found_insert_count:
+            all_ok &= check("INSERT count matches export", False, "INSERT_COUNT missing in meta file")
     elif sql_exists:
         check(f"Meta file ({META_FILE})", False, "not found — copy it alongside the SQL file to enable integrity check")
 
