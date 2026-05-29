@@ -7,6 +7,8 @@ Schema translation:
   chrome-service.user_identity_id (uint FK) -> widget-layout.user_id (string)
     resolved via JOIN on user_identities.account_id
   chrome-service.display_name -> widget-layout.dashboard_name (copy)
+  chrome-service.sm/md/lg/xl JSONB "i" fields -> widget-layout FEO widget IDs
+    e.g., "rhel#rhel" -> "landing-./RhelWidget" (see WIDGET_ID_MAP)
 
 Usage:
   1. Copy this script into chrome-service debug-container
@@ -25,6 +27,30 @@ import psycopg2
 import psycopg2.extras
 
 OUTPUT_FILE = "/tmp/widget_migration.sql"
+META_FILE = "/tmp/widget_migration.meta"
+
+# Chrome-service widget IDs -> widget-layout-backend FEO widget IDs.
+# Source: docs/WIDGET_MIGRATION.md
+# Chrome-service stores "i" values as "shortKey#shortKey" (e.g., "rhel#rhel").
+# Widget-layout-backend expects "{scope}-{module}" (e.g., "landing-./RhelWidget").
+WIDGET_ID_MAP = {
+    "acs":                 "landing-./AcsWidget",
+    "ansible":             "landing-./AnsibleWidget",
+    "edge":                "landing-./EdgeWidget",
+    "exploreCapabilities": "landing-./ExploreCapabilities",
+    "favoriteServices":    "chrome-./DashboardFavorites",
+    "imageBuilder":        "landing-./ImageBuilderWidget",
+    "integrations":        "sources-./IntegrationsWidget",
+    "learningResources":   "learningResources-./BookmarkedLearningResourcesWidget",
+    "notificationsEvents": "notifications-./DashboardWidget",
+    "openshift":           "landing-./OpenShiftWidget",
+    "openshiftAi":         "landing-./OpenShiftAiWidget",
+    "quay":                "landing-./QuayWidget",
+    "recentlyVisited":     "landing-./RecentlyVisited",
+    "rhel":                "landing-./RhelWidget",
+    "subscriptions":       "subscriptionInventory-./SubscriptionsWidget",
+    "supportCases":        "landing-./SupportCaseWidget",
+}
 
 
 def get_connection():
@@ -69,6 +95,32 @@ def sql_value(val):
         return "'" + json.dumps(val).replace("'", "''") + "'::jsonb"
     s = str(val).replace("'", "''")
     return f"'{s}'"
+
+
+def transform_widget_ids(items):
+    """Transform widget item "i" fields from chrome-service to widget-layout format.
+
+    Chrome-service format: "shortKey#shortKey" (e.g., "rhel#rhel")
+    Widget-layout format: "scope-./Module" (e.g., "landing-./RhelWidget")
+    """
+    if not isinstance(items, list):
+        return items, set()
+
+    unmapped = set()
+    for item in items:
+        if not isinstance(item, dict) or "i" not in item:
+            continue
+        raw_id = item["i"]
+        if not isinstance(raw_id, str):
+            print(f"  WARNING: skipping non-string widget ID: {raw_id!r} (type={type(raw_id).__name__})")
+            continue
+        # Strip "#suffix" if present (chrome-service uses "key#key" format)
+        short_key = raw_id.split("#", 1)[0]
+        if short_key in WIDGET_ID_MAP:
+            item["i"] = WIDGET_ID_MAP[short_key]
+        else:
+            unmapped.add(raw_id)
+    return items, unmapped
 
 
 def check(label, ok, detail=""):
@@ -227,6 +279,31 @@ def do_preflight_import():
     else:
         all_ok &= check(f"SQL file exists ({OUTPUT_FILE})", False, "copy it from source debug-container first")
 
+    # 7. Cross-check against export metadata (catches truncated file transfers)
+    meta_exists = os.path.exists(META_FILE)
+    if meta_exists and sql_exists:
+        found_insert_count = False
+        with open(META_FILE) as f:
+            for line in f:
+                if line.startswith("INSERT_COUNT="):
+                    found_insert_count = True
+                    try:
+                        expected = int(line.strip().split("=", 1)[1])
+                    except ValueError:
+                        all_ok &= check("INSERT count matches export", False, "invalid INSERT_COUNT value in meta file")
+                        break
+                    match = insert_count == expected
+                    all_ok &= check(
+                        "INSERT count matches export",
+                        match,
+                        f"expected {expected}, got {insert_count} — file may be truncated" if not match else f"{insert_count} matches",
+                    )
+                    break
+        if not found_insert_count:
+            all_ok &= check("INSERT count matches export", False, "INSERT_COUNT missing in meta file")
+    elif sql_exists:
+        all_ok &= check(f"Meta file ({META_FILE})", False, "not found — copy it alongside the SQL file to enable integrity check")
+
     cur.close()
     conn.close()
 
@@ -286,6 +363,21 @@ def do_export():
         print("Add these to NAME_MAP before proceeding.")
         sys.exit(1)
 
+    # Transform widget item "i" fields in JSONB columns (sm, md, lg, xl)
+    all_unmapped_ids = set()
+    for row in rows:
+        for col in ("sm", "md", "lg", "xl"):
+            if row[col] is not None:
+                row[col], unmapped = transform_widget_ids(row[col])
+                all_unmapped_ids |= unmapped
+    if all_unmapped_ids:
+        print(f"ERROR: {len(all_unmapped_ids)} unmapped widget IDs in JSONB: {sorted(all_unmapped_ids)}")
+        print("Add these to WIDGET_ID_MAP before proceeding.")
+        cur.close()
+        conn.close()
+        sys.exit(1)
+    print("Transformed widget IDs in JSONB columns (sm/md/lg/xl)")
+
     bad_rows = [r for r in rows if not r["user_id"]]
     if bad_rows:
         print(f"ERROR: {len(bad_rows)} rows have NULL/empty user_id:")
@@ -323,6 +415,11 @@ def do_export():
 
     insert_count = sum(1 for line in open(OUTPUT_FILE) if line.startswith("INSERT"))
     print(f"Generated {insert_count} INSERT statements in {OUTPUT_FILE}")
+
+    with open(META_FILE, "w") as f:
+        f.write(f"INSERT_COUNT={insert_count}\n")
+    print(f"Wrote expected count to {META_FILE}")
+
     print()
     print("Next steps:")
     print(f"  1. Review {OUTPUT_FILE}")
@@ -334,7 +431,7 @@ def do_export():
     conn.close()
 
 
-def do_import():
+def do_import(auto_confirm=False):
     if not os.path.exists(OUTPUT_FILE):
         print(f"ERROR: {OUTPUT_FILE} not found.")
         print("Copy it from the export debug-container first.")
@@ -346,10 +443,13 @@ def do_import():
     insert_count = sql.count("INSERT INTO")
     print(f"Found {insert_count} INSERT statements in {OUTPUT_FILE}")
 
-    confirm = input("Proceed with import? (y/N): ").strip().lower()
-    if confirm != "y":
-        print("Aborted.")
-        return
+    if auto_confirm:
+        print("--yes flag set, skipping confirmation.")
+    else:
+        confirm = input("Proceed with import? (y/N): ").strip().lower()
+        if confirm != "y":
+            print("Aborted.")
+            return
 
     conn = get_connection()
     cur = conn.cursor()
@@ -376,7 +476,8 @@ def do_import():
 
 if __name__ == "__main__":
     commands = ("preflight-export", "preflight-import", "export", "import")
-    if len(sys.argv) != 2 or sys.argv[1] not in commands:
+    cmd = sys.argv[1] if len(sys.argv) >= 2 else None
+    if cmd not in commands:
         print("Usage: python3 widget-migration-script.py <command>")
         print()
         print("  preflight-export  - Run inside chrome-service debug-container")
@@ -388,11 +489,11 @@ if __name__ == "__main__":
         print("  export            - Run inside chrome-service debug-container")
         print("                      Generates SQL file from source DB")
         print()
-        print("  import            - Run inside widget-layout-backend debug-container")
+        print("  import [--yes]    - Run inside widget-layout-backend debug-container")
         print("                      Executes SQL file against target DB")
+        print("                      --yes skips interactive confirmation")
         sys.exit(1)
 
-    cmd = sys.argv[1]
     if cmd == "preflight-export":
         do_preflight_export()
     elif cmd == "preflight-import":
@@ -400,4 +501,5 @@ if __name__ == "__main__":
     elif cmd == "export":
         do_export()
     else:
-        do_import()
+        auto_confirm = "--yes" in sys.argv[2:]
+        do_import(auto_confirm=auto_confirm)
