@@ -100,11 +100,19 @@ Same as staging. The migration script handles these translations automatically:
 
 ## 4. Step 1: Obtain Production Breakglass Access (app-interface MR)
 
-Production requires a **breakglass role** — `edit` is prohibited on production namespaces per Self-SRE OpenShift Access Standards. Breakglass uses a scoped Kubernetes RBAC Role (not ClusterRole) with explicit permissions.
+Production requires a **breakglass role** — `edit` is prohibited on production namespaces per Self-SRE OpenShift Access Standards. Breakglass uses a scoped Kubernetes RBAC Role bound via a group-based RoleBinding, following the [breakglass access documentation](https://gitlab.cee.redhat.com/service/app-interface/-/blob/master/docs/platform-users/access/breakglass-access.md).
 
-### 4.1 Create the Breakglass RBAC Role Resource
+The breakglass pattern consists of five components:
 
-File: `resources/services/insights/chrome-service/rbac/widget-migration-breakglass.role.yaml`
+1. **Role Definition** — defines the breakglass role with expiration and cluster group
+2. **RBAC Role** — Kubernetes Role with least-privilege permissions (one per namespace)
+3. **RBAC RoleBinding** — binds the breakglass group to the Role (one per namespace)
+4. **Cluster Group Registration** — registers the group in the cluster's `managedGroups`
+5. **Namespace Resource References** — adds RBAC resources to each namespace's `openshiftResources`
+
+### 4.1 Create the Breakglass RBAC Role Resources
+
+File: `resources/insights-prod/chrome-service-prod/widget-migration-breakglass.role.yaml`
 
 ```yaml
 ---
@@ -112,25 +120,21 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
   name: widget-migration-breakglass
+  namespace: chrome-service-prod
 rules:
-# Create and manage debug pods
 - apiGroups: [""]
   resources: ["pods"]
   verbs: ["create", "list", "get", "delete"]
-# Exec into pods for running migration
 - apiGroups: [""]
   resources: ["pods/exec"]
   verbs: ["create", "get"]
-# Read DB secret (named explicitly)
 - apiGroups: [""]
   resources: ["secrets"]
   resourceNames: ["chrome-service-db"]
   verbs: ["get"]
 ```
 
-Create a similar file for widget-layout-backend:
-
-File: `resources/services/insights/widget-layout-backend/rbac/widget-migration-breakglass.role.yaml`
+File: `resources/insights-prod/widget-layout-backend-prod/widget-migration-breakglass.role.yaml`
 
 ```yaml
 ---
@@ -138,23 +142,61 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
   name: widget-migration-breakglass
+  namespace: widget-layout-backend-prod
 rules:
-# Create and manage debug pods
 - apiGroups: [""]
   resources: ["pods"]
   verbs: ["create", "list", "get", "delete"]
-# Exec into pods for running migration
 - apiGroups: [""]
   resources: ["pods/exec"]
   verbs: ["create", "get"]
-# Read DB secret (named explicitly)
 - apiGroups: [""]
   resources: ["secrets"]
   resourceNames: ["widget-layout-backend-db"]
   verbs: ["get"]
 ```
 
-### 4.2 Create the Breakglass Role File
+### 4.2 Create the RBAC RoleBindings
+
+File: `resources/insights-prod/chrome-service-prod/widget-migration-breakglass.rolebinding.yaml`
+
+```yaml
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: widget-migration-breakglass
+  namespace: chrome-service-prod
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: widget-migration-breakglass
+subjects:
+- apiGroup: rbac.authorization.k8s.io
+  kind: Group
+  name: widget-migration-breakglass-group
+```
+
+File: `resources/insights-prod/widget-layout-backend-prod/widget-migration-breakglass.rolebinding.yaml`
+
+```yaml
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: widget-migration-breakglass
+  namespace: widget-layout-backend-prod
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: widget-migration-breakglass
+subjects:
+- apiGroup: rbac.authorization.k8s.io
+  kind: Group
+  name: widget-migration-breakglass-group
+```
+
+### 4.3 Create the Breakglass Role Definition
 
 File: `data/teams/insights/roles/platform-experience-breakglass.yml`
 
@@ -173,15 +215,12 @@ description: |
 
 permissions: []
 
-expirationDate: '2026-06-08'
+expirationDate: '2026-06-30'
 
 access:
-- namespace:
-    $ref: /services/insights/chrome-service/namespaces/chrome-service-prod.yml
-  role: widget-migration-breakglass
-- namespace:
-    $ref: /services/insights/widget-layout-backend/namespaces/crcp01ue1-widget-layout-backend-prod.yml
-  role: widget-migration-breakglass
+- cluster:
+    $ref: /openshift/crcp01ue1/cluster.yml
+  group: widget-migration-breakglass-group
 
 self_service:
 - change_type:
@@ -190,7 +229,39 @@ self_service:
   - $ref: /teams/insights/roles/platform-experience-breakglass.yml
 ```
 
-### 4.3 Add Role to User Files
+### 4.4 Register the Group in Cluster Configuration
+
+Edit `data/openshift/crcp01ue1/cluster.yml` and add `widget-migration-breakglass-group` to the `managedGroups` list:
+
+```yaml
+managedGroups:
+- dedicated-admins
+- dedicated-readers
+# ... existing groups ...
+- widget-migration-breakglass-group
+```
+
+### 4.5 Reference Resources in Namespace Definitions
+
+Edit `data/services/insights/chrome-service/namespaces/chrome-service-prod.yml` — add to `openshiftResources`:
+
+```yaml
+- provider: resource
+  path: /insights-prod/chrome-service-prod/widget-migration-breakglass.role.yaml
+- provider: resource
+  path: /insights-prod/chrome-service-prod/widget-migration-breakglass.rolebinding.yaml
+```
+
+Edit `data/services/insights/widget-layout-backend/namespaces/crcp01ue1-widget-layout-backend-prod.yml` — add to `openshiftResources`:
+
+```yaml
+- provider: resource
+  path: /insights-prod/widget-layout-backend-prod/widget-migration-breakglass.role.yaml
+- provider: resource
+  path: /insights-prod/widget-layout-backend-prod/widget-migration-breakglass.rolebinding.yaml
+```
+
+### 4.6 Add Role to User Files
 
 Add the following line to the `roles:` section of each user file in `data/teams/insights/users/`:
 
@@ -204,19 +275,21 @@ Users to update:
 - `bflorkie.yml`
 - `mmarosi.yml`
 
-### 4.4 Add Resource Paths to Self-Service
+### 4.7 Add Resource Paths to Self-Service
 
-Ensure the breakglass RBAC resource files are listed in the team's `resource-owner` self-service section so changes to these resources can be self-approved. Check the `platform-experience` or `platform-experience-services` role file and add:
+Add the RBAC resource files to the `resource-owner` self-service section in `data/teams/insights/roles/platform-experience-services.yml`:
 
 ```yaml
 - change_type:
     $ref: /app-interface/changetype/resource-owner.yml
   resources:
-  - /services/insights/chrome-service/rbac/widget-migration-breakglass.role.yaml
-  - /services/insights/widget-layout-backend/rbac/widget-migration-breakglass.role.yaml
+  - /insights-prod/chrome-service-prod/widget-migration-breakglass.role.yaml
+  - /insights-prod/chrome-service-prod/widget-migration-breakglass.rolebinding.yaml
+  - /insights-prod/widget-layout-backend-prod/widget-migration-breakglass.role.yaml
+  - /insights-prod/widget-layout-backend-prod/widget-migration-breakglass.rolebinding.yaml
 ```
 
-### 4.5 Commit, Push, and Create MR
+### 4.8 Commit, Push, and Create MR
 
 ```bash
 cd /path/to/app-interface
@@ -643,10 +716,15 @@ Submit an MR to remove the breakglass access:
 
 1. Remove `- $ref: /teams/insights/roles/platform-experience-breakglass.yml` from all 4 user files
 2. Delete `data/teams/insights/roles/platform-experience-breakglass.yml`
-3. Delete `resources/services/insights/chrome-service/rbac/widget-migration-breakglass.role.yaml`
-4. Delete `resources/services/insights/widget-layout-backend/rbac/widget-migration-breakglass.role.yaml`
+3. Delete `resources/insights-prod/chrome-service-prod/widget-migration-breakglass.role.yaml`
+4. Delete `resources/insights-prod/chrome-service-prod/widget-migration-breakglass.rolebinding.yaml`
+5. Delete `resources/insights-prod/widget-layout-backend-prod/widget-migration-breakglass.role.yaml`
+6. Delete `resources/insights-prod/widget-layout-backend-prod/widget-migration-breakglass.rolebinding.yaml`
+7. Remove `widget-migration-breakglass-group` from `managedGroups` in `data/openshift/crcp01ue1/cluster.yml`
+8. Remove the `provider: resource` entries for the breakglass role/rolebinding from both namespace files
+9. Remove the breakglass resource paths from `resource-owner` in `platform-experience-services.yml`
 
-Or let it expire on `2026-06-08`. However, removing promptly is preferred for production breakglass.
+Or let it expire on `2026-06-30`. However, removing promptly is preferred for production breakglass.
 
 ---
 
@@ -691,8 +769,11 @@ If a full rollback is needed and manual deletion is insufficient, restore the wi
 | Migration script | `widget-migration-script.py` (local) |
 | Breakglass MR branch | `widget-migration-prod-breakglass` (to be created) |
 | Breakglass role file | `data/teams/insights/roles/platform-experience-breakglass.yml` |
-| Chrome-service breakglass RBAC | `resources/services/insights/chrome-service/rbac/widget-migration-breakglass.role.yaml` |
-| Widget-layout breakglass RBAC | `resources/services/insights/widget-layout-backend/rbac/widget-migration-breakglass.role.yaml` |
+| Chrome-service breakglass RBAC Role | `resources/insights-prod/chrome-service-prod/widget-migration-breakglass.role.yaml` |
+| Chrome-service breakglass RoleBinding | `resources/insights-prod/chrome-service-prod/widget-migration-breakglass.rolebinding.yaml` |
+| Widget-layout breakglass RBAC Role | `resources/insights-prod/widget-layout-backend-prod/widget-migration-breakglass.role.yaml` |
+| Widget-layout breakglass RoleBinding | `resources/insights-prod/widget-layout-backend-prod/widget-migration-breakglass.rolebinding.yaml` |
+| Cluster config (managedGroups) | `data/openshift/crcp01ue1/cluster.yml` |
 | Debug-container docs | `docs/app-sre/sops/general/debug-container.md` |
 | Self-SRE access docs | `docs/platform-users/access/self-sre-openshift-access.md` |
 | DB connection docs | `docs/platform-users/external-resources/aws/rds/connect-to-postgres-mysql-database.md` |
