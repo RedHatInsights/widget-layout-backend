@@ -120,11 +120,10 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
   name: widget-migration-breakglass
-  namespace: chrome-service-prod
 rules:
 - apiGroups: [""]
   resources: ["pods"]
-  verbs: ["create", "list", "get", "delete"]
+  verbs: ["get", "list", "create", "delete"]
 - apiGroups: [""]
   resources: ["pods/exec"]
   verbs: ["create", "get"]
@@ -142,11 +141,10 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
   name: widget-migration-breakglass
-  namespace: widget-layout-backend-prod
 rules:
 - apiGroups: [""]
   resources: ["pods"]
-  verbs: ["create", "list", "get", "delete"]
+  verbs: ["get", "list", "create", "delete"]
 - apiGroups: [""]
   resources: ["pods/exec"]
   verbs: ["create", "get"]
@@ -166,7 +164,6 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
   name: widget-migration-breakglass
-  namespace: chrome-service-prod
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
@@ -185,7 +182,6 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
   name: widget-migration-breakglass
-  namespace: widget-layout-backend-prod
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
@@ -198,24 +194,27 @@ subjects:
 
 ### 4.3 Create the Breakglass Role Definition
 
-File: `data/teams/insights/roles/platform-experience-breakglass.yml`
+File: `data/teams/insights/roles/widget-migration-breakglass.yml`
 
 ```yaml
 ---
+# Temporary role for Widget Migration production breakglass access
+#
+# IMPORTANT: This role has an expirationDate.
+# The expiration date serves as a reminder to review whether this breakglass access is still needed.
 
 $schema: /access/role-1.yml
 
 labels: {}
-name: platform-experience-breakglass
-
+name: widget-migration-breakglass
 description: |
-  Breakglass role for production dashboard_templates data migration
-  from chrome-service to widget-layout-backend. Scoped to debug pod
-  creation, exec, and named DB secret access only.
+  Breakglass role for Widget Migration production debugging. Provides minimal access to
+  create debug pods and read secrets.
 
 permissions: []
 
-expirationDate: '2026-06-30'
+# Set an expiration date to minimal required window
+expirationDate: '2026-07-31'
 
 access:
 - cluster:
@@ -226,7 +225,7 @@ self_service:
 - change_type:
     $ref: /app-interface/changetype/breakglass-role-manager.yml
   datafiles:
-  - $ref: /teams/insights/roles/platform-experience-breakglass.yml
+  - $ref: /teams/insights/roles/widget-migration-breakglass.yml
 ```
 
 ### 4.4 Register the Group in Cluster Configuration
@@ -266,7 +265,7 @@ Edit `data/services/insights/widget-layout-backend/namespaces/crcp01ue1-widget-l
 Add the following line to the `roles:` section of each user file in `data/teams/insights/users/`:
 
 ```yaml
-- $ref: /teams/insights/roles/platform-experience-breakglass.yml
+- $ref: /teams/insights/roles/widget-migration-breakglass.yml
 ```
 
 Users to update:
@@ -714,8 +713,8 @@ rm ./widget_migration_prod.sql ./widget_migration_prod.meta
 
 Submit an MR to remove the breakglass access:
 
-1. Remove `- $ref: /teams/insights/roles/platform-experience-breakglass.yml` from all 4 user files
-2. Delete `data/teams/insights/roles/platform-experience-breakglass.yml`
+1. Remove `- $ref: /teams/insights/roles/widget-migration-breakglass.yml` from all 4 user files
+2. Delete `data/teams/insights/roles/widget-migration-breakglass.yml`
 3. Delete `resources/insights-prod/chrome-service-prod/widget-migration-breakglass.role.yaml`
 4. Delete `resources/insights-prod/chrome-service-prod/widget-migration-breakglass.rolebinding.yaml`
 5. Delete `resources/insights-prod/widget-layout-backend-prod/widget-migration-breakglass.role.yaml`
@@ -724,7 +723,7 @@ Submit an MR to remove the breakglass access:
 8. Remove the `provider: resource` entries for the breakglass role/rolebinding from both namespace files
 9. Remove the breakglass resource paths from `resource-owner` in `platform-experience-services.yml`
 
-Or let it expire on `2026-06-30`. However, removing promptly is preferred for production breakglass.
+Or let it expire on `2026-07-31`. However, removing promptly is preferred for production breakglass.
 
 ---
 
@@ -768,7 +767,7 @@ If a full rollback is needed and manual deletion is insufficient, restore the wi
 |----------|----------|
 | Migration script | `widget-migration-script.py` (local) |
 | Breakglass MR branch | `widget-migration-prod-breakglass` (to be created) |
-| Breakglass role file | `data/teams/insights/roles/platform-experience-breakglass.yml` |
+| Breakglass role file | `data/teams/insights/roles/widget-migration-breakglass.yml` |
 | Chrome-service breakglass RBAC Role | `resources/insights-prod/chrome-service-prod/widget-migration-breakglass.role.yaml` |
 | Chrome-service breakglass RoleBinding | `resources/insights-prod/chrome-service-prod/widget-migration-breakglass.rolebinding.yaml` |
 | Widget-layout breakglass RBAC Role | `resources/insights-prod/widget-layout-backend-prod/widget-migration-breakglass.role.yaml` |
