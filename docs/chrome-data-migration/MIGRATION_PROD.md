@@ -260,6 +260,16 @@ Edit `data/services/insights/widget-layout-backend/namespaces/crcp01ue1-widget-l
   path: /insights-prod/widget-layout-backend-prod/widget-migration-breakglass.rolebinding.yaml
 ```
 
+**IMPORTANT: `managedResourceTypes` is required.** If the namespace file does not already include a `managedResourceTypes` field, the `openshift-resources` integration will skip Role and RoleBinding types entirely — the resources will appear in `openshiftResources` but never get deployed to the cluster. Add the following to both namespace files:
+
+```yaml
+managedResourceTypes:
+- Role.rbac.authorization.k8s.io
+- RoleBinding.rbac.authorization.k8s.io
+```
+
+See [troubleshooting docs](https://gitlab.cee.redhat.com/service/app-interface/-/blob/master/docs/platform-users/FAQ/troubleshooting.md#my-configuration-is-merged-into-app-interface-but-it-isnt-applied) for details.
+
 ### 4.6 Add Role to User Files
 
 Add the following line to the `roles:` section of each user file in `data/teams/insights/users/`:
