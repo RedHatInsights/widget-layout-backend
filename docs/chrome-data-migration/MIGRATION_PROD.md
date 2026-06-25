@@ -42,7 +42,7 @@ Migrate the `dashboard_templates` table from chrome-service DB to widget-layout-
 | **Target namespace** | `widget-layout-backend-prod` |
 | **Source DB secret** | `chrome-service-db` |
 | **Target DB secret** | `widget-layout-backend-db` |
-| **Method** | Python script using `psycopg2` inside debug-containers |
+| **Method** | Python script using `psycopg2` inside bare debug pods (4Gi memory) |
 | **Migration script** | `widget-migration-script.py` |
 | **Access method** | Breakglass role (required for production) |
 | **Authorized users** | tefaz, khala, bflorkie, mmarosi |
@@ -377,21 +377,73 @@ If any return `no`, the RBAC hasn't reconciled yet. Wait a few more minutes and 
 
 ## 8. Step 5: Launch Debug-Container in Chrome-Service Namespace (Source)
 
+> **Note:** The standard debug-container template creates a Deployment, but the breakglass RBAC Role only grants pod-level permissions (not `deployments.apps`). Use a bare Pod manifest instead. The pod needs at least **4Gi memory** — the default 1Gi is insufficient for large datasets (374K+ rows with JSONB columns cause OOM kills during export).
+
 ```bash
-oc process --local \
-    -f https://raw.githubusercontent.com/app-sre/container-images/master/debug-container/openshift.yml \
-    -p POSTGRES_DB_SECRET_NAME="chrome-service-db" \
-| oc -n chrome-service-prod apply -f -
+oc -n chrome-service-prod apply -f - <<'EOF'
+apiVersion: v1
+kind: Pod
+metadata:
+  name: debug-container
+  labels:
+    app: debug-container
+spec:
+  containers:
+  - name: debug-container
+    image: quay.io/redhat-services-prod/app-sre-tenant/container-images-master/debug-container-master:latest
+    command: ["sleep"]
+    args: ["infinity"]
+    resources:
+      requests:
+        cpu: 100m
+        memory: 1Gi
+      limits:
+        cpu: 1000m
+        memory: 4Gi
+    env:
+    - name: PGHOST
+      valueFrom:
+        secretKeyRef:
+          name: chrome-service-db
+          key: db.host
+          optional: true
+    - name: PGPORT
+      valueFrom:
+        secretKeyRef:
+          name: chrome-service-db
+          key: db.port
+          optional: true
+    - name: PGDATABASE
+      valueFrom:
+        secretKeyRef:
+          name: chrome-service-db
+          key: db.name
+          optional: true
+    - name: PGUSER
+      valueFrom:
+        secretKeyRef:
+          name: chrome-service-db
+          key: db.user
+          optional: true
+    - name: PGPASSWORD
+      valueFrom:
+        secretKeyRef:
+          name: chrome-service-db
+          key: db.password
+          optional: true
+    - name: PGSSLMODE
+      value: "require"
+    - name: PGCONNECT_TIMEOUT
+      value: "30"
+  restartPolicy: Never
+EOF
 ```
 
-Wait for the deployment to roll out and get the pod name:
+Wait for the pod to be ready:
 
 ```bash
-oc -n chrome-service-prod rollout status deployment/debug-container --timeout=120s
-
-# Get the actual pod name (it has a hash suffix)
-SOURCE_POD=$(oc -n chrome-service-prod get pods -l app=debug-container -o jsonpath='{.items[0].metadata.name}')
-echo "Source pod: $SOURCE_POD"
+oc -n chrome-service-prod wait --for=condition=Ready pod/debug-container --timeout=120s
+SOURCE_POD="debug-container"
 ```
 
 ---
@@ -512,21 +564,73 @@ cat ./widget_migration_prod.meta
 
 ## 11. Step 8: Launch Debug-Container in Widget-Layout Namespace (Target)
 
+> **Note:** Same as Step 5 — use a bare Pod manifest with 4Gi memory instead of the Deployment-based debug-container template.
+
 ```bash
-oc process --local \
-    -f https://raw.githubusercontent.com/app-sre/container-images/master/debug-container/openshift.yml \
-    -p POSTGRES_DB_SECRET_NAME="widget-layout-backend-db" \
-| oc -n widget-layout-backend-prod apply -f -
+oc -n widget-layout-backend-prod apply -f - <<'EOF'
+apiVersion: v1
+kind: Pod
+metadata:
+  name: debug-container
+  labels:
+    app: debug-container
+spec:
+  containers:
+  - name: debug-container
+    image: quay.io/redhat-services-prod/app-sre-tenant/container-images-master/debug-container-master:latest
+    command: ["sleep"]
+    args: ["infinity"]
+    resources:
+      requests:
+        cpu: 100m
+        memory: 1Gi
+      limits:
+        cpu: 1000m
+        memory: 4Gi
+    env:
+    - name: PGHOST
+      valueFrom:
+        secretKeyRef:
+          name: widget-layout-backend-db
+          key: db.host
+          optional: true
+    - name: PGPORT
+      valueFrom:
+        secretKeyRef:
+          name: widget-layout-backend-db
+          key: db.port
+          optional: true
+    - name: PGDATABASE
+      valueFrom:
+        secretKeyRef:
+          name: widget-layout-backend-db
+          key: db.name
+          optional: true
+    - name: PGUSER
+      valueFrom:
+        secretKeyRef:
+          name: widget-layout-backend-db
+          key: db.user
+          optional: true
+    - name: PGPASSWORD
+      valueFrom:
+        secretKeyRef:
+          name: widget-layout-backend-db
+          key: db.password
+          optional: true
+    - name: PGSSLMODE
+      value: "require"
+    - name: PGCONNECT_TIMEOUT
+      value: "30"
+  restartPolicy: Never
+EOF
 ```
 
-Wait for the deployment to roll out and get the pod name:
+Wait for the pod to be ready:
 
 ```bash
-oc -n widget-layout-backend-prod rollout status deployment/debug-container --timeout=120s
-
-# Get the actual pod name
-TARGET_POD=$(oc -n widget-layout-backend-prod get pods -l app=debug-container -o jsonpath='{.items[0].metadata.name}')
-echo "Target pod: $TARGET_POD"
+oc -n widget-layout-backend-prod wait --for=condition=Ready pod/debug-container --timeout=120s
+TARGET_POD="debug-container"
 ```
 
 ---
@@ -699,18 +803,18 @@ curl -H "Authorization: Bearer $TOKEN" "$GABI/query" \
 
 ### 16.1 Delete Debug-Containers (MANDATORY)
 
-Production debug-containers must be removed immediately after use. Delete the Deployment (not just the pod — the Deployment would recreate it):
+Production debug-containers must be removed immediately after use:
 
 ```bash
-oc -n chrome-service-prod delete deployment debug-container
-oc -n widget-layout-backend-prod delete deployment debug-container
+oc -n chrome-service-prod delete pod debug-container
+oc -n widget-layout-backend-prod delete pod debug-container
 ```
 
 Verify they are gone:
 
 ```bash
-oc -n chrome-service-prod get deployment debug-container 2>&1 | grep "not found"
-oc -n widget-layout-backend-prod get deployment debug-container 2>&1 | grep "not found"
+oc -n chrome-service-prod get pod debug-container 2>&1 | grep "not found"
+oc -n widget-layout-backend-prod get pod debug-container 2>&1 | grep "not found"
 ```
 
 ### 16.2 Clean Up Local Files
