@@ -204,7 +204,7 @@ func TestGetWidgets(t *testing.T) {
 		server.GetWidgetLayout(w, req, api.GetWidgetLayoutParams{DashboardType: stringPtr("dashboard-a")})
 
 		assert.Equal(t, http.StatusOK, w.Code)
-		
+
 		var filteredResp api.DashboardTemplateListResponse
 		json.Unmarshal(w.Body.Bytes(), &filteredResp)
 		assert.Len(t, filteredResp.Data, 2, "Should return 2 templates with dashboard-a")
@@ -235,7 +235,7 @@ func TestGetWidgets(t *testing.T) {
 		server.GetWidgetLayout(w, req, api.GetWidgetLayoutParams{})
 
 		assert.Equal(t, http.StatusOK, w.Code)
-		
+
 		var allResp api.DashboardTemplateListResponse
 		json.Unmarshal(w.Body.Bytes(), &allResp)
 		assert.Len(t, allResp.Data, 2, "Should return all 2 templates when no filter")
@@ -273,7 +273,7 @@ func TestGetWidgets(t *testing.T) {
 		server.GetWidgetLayout(w, req, api.GetWidgetLayoutParams{DashboardType: stringPtr("server-auto-test")})
 
 		assert.Equal(t, http.StatusNotFound, w.Code, "Should return 404 when auto-creating template")
-		
+
 		var autoResp api.DashboardTemplateListResponse
 		json.Unmarshal(w.Body.Bytes(), &autoResp)
 		assert.Len(t, autoResp.Data, 1, "Should return 1 auto-created template")

@@ -44,7 +44,7 @@ func TestGetWidgetMapping(t *testing.T) {
 			Module: "dashboard-widget",
 			Config: api.WidgetConfiguration{
 				Title: "Dashboard Overview",
-				Icon:    stringPtr("dashboard-icon"),
+				Icon:  stringPtr("dashboard-icon"),
 			},
 			Defaults: api.WidgetBaseDimensions{
 				Width:     test_util.IntPTR(2),
@@ -59,7 +59,7 @@ func TestGetWidgetMapping(t *testing.T) {
 			Module: "alerts-widget",
 			Config: api.WidgetConfiguration{
 				Title: "Alert Status",
-				Icon:    stringPtr("alert-icon"),
+				Icon:  stringPtr("alert-icon"),
 			},
 			Defaults: api.WidgetBaseDimensions{
 				Width:     test_util.IntPTR(1),
@@ -125,11 +125,11 @@ func TestGetWidgetMapping(t *testing.T) {
 			FeatureFlag: &featureFlag,
 			Config: api.WidgetConfiguration{
 				Title:       "Advanced Widget",
-				Icon:    stringPtr("advanced-icon"),
+				Icon:        stringPtr("advanced-icon"),
 				Permissions: &permissions,
 				HeaderLink: &api.WidgetHeaderLink{
 					Title: "View Details",
-					Href: "https://console.redhat.com/insights/dashboard",
+					Href:  "https://console.redhat.com/insights/dashboard",
 				},
 			},
 			Defaults: api.WidgetBaseDimensions{
@@ -194,7 +194,7 @@ func TestGetWidgetMapping(t *testing.T) {
 			ImportName: &importName1,
 			Config: api.WidgetConfiguration{
 				Title: "Widget with Import",
-				Icon:    stringPtr("icon1"),
+				Icon:  stringPtr("icon1"),
 			},
 			Defaults: api.WidgetBaseDimensions{
 				Width:     test_util.IntPTR(1),
@@ -209,7 +209,7 @@ func TestGetWidgetMapping(t *testing.T) {
 			Module: "module1",
 			Config: api.WidgetConfiguration{
 				Title: "Widget without Import",
-				Icon:    stringPtr("icon2"),
+				Icon:  stringPtr("icon2"),
 			},
 			Defaults: api.WidgetBaseDimensions{
 				Width:     test_util.IntPTR(2),
@@ -278,7 +278,7 @@ func TestGetWidgetMapping(t *testing.T) {
 			Module: "test-module",
 			Config: api.WidgetConfiguration{
 				Title: "Data Integrity Test",
-				Icon:    stringPtr("test-icon"),
+				Icon:  stringPtr("test-icon"),
 			},
 			Defaults: api.WidgetBaseDimensions{
 				Width:     test_util.IntPTR(2),
@@ -324,7 +324,7 @@ func TestGetWidgetMapping(t *testing.T) {
 			Module: "duplicate-module",
 			Config: api.WidgetConfiguration{
 				Title: "Original Widget",
-				Icon:    stringPtr("original-icon"),
+				Icon:  stringPtr("original-icon"),
 			},
 			Defaults: api.WidgetBaseDimensions{
 				Width:     test_util.IntPTR(1),
@@ -340,7 +340,7 @@ func TestGetWidgetMapping(t *testing.T) {
 			Module: "duplicate-module",
 			Config: api.WidgetConfiguration{
 				Title: "Overwriting Widget",
-				Icon:    stringPtr("overwriting-icon"),
+				Icon:  stringPtr("overwriting-icon"),
 			},
 			Defaults: api.WidgetBaseDimensions{
 				Width:     test_util.IntPTR(3),

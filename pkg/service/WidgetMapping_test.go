@@ -31,7 +31,7 @@ func TestGetWidgetMappings(t *testing.T) {
 			Module: "test-module-1",
 			Config: api.WidgetConfiguration{
 				Title: "Test Widget 1",
-				Icon:    stringPtr("test-icon-1"),
+				Icon:  stringPtr("test-icon-1"),
 			},
 			Defaults: api.WidgetBaseDimensions{
 				Width:     test_util.IntPTR(2),
@@ -46,7 +46,7 @@ func TestGetWidgetMappings(t *testing.T) {
 			Module: "test-module-2",
 			Config: api.WidgetConfiguration{
 				Title: "Test Widget 2",
-				Icon:    stringPtr("test-icon-2"),
+				Icon:  stringPtr("test-icon-2"),
 			},
 			Defaults: api.WidgetBaseDimensions{
 				Width:     test_util.IntPTR(1),
@@ -93,7 +93,7 @@ func TestGetWidgetMappings(t *testing.T) {
 			ImportName: &importName,
 			Config: api.WidgetConfiguration{
 				Title: "Test Widget with Import",
-				Icon:    stringPtr("test-icon"),
+				Icon:  stringPtr("test-icon"),
 			},
 			Defaults: api.WidgetBaseDimensions{
 				Width:     test_util.IntPTR(3),
@@ -129,7 +129,7 @@ func TestGetWidgetMappings(t *testing.T) {
 			FeatureFlag: &featureFlag,
 			Config: api.WidgetConfiguration{
 				Title: "Test Widget with Feature Flag",
-				Icon:    stringPtr("test-icon"),
+				Icon:  stringPtr("test-icon"),
 			},
 			Defaults: api.WidgetBaseDimensions{
 				Width:     test_util.IntPTR(2),
@@ -159,10 +159,10 @@ func TestGetWidgetMappings(t *testing.T) {
 			Module: "test-module",
 			Config: api.WidgetConfiguration{
 				Title: "Test Widget with Header Link",
-				Icon:    stringPtr("test-icon"),
+				Icon:  stringPtr("test-icon"),
 				HeaderLink: &api.WidgetHeaderLink{
 					Title: "View Details",
-					Href: "https://example.com/details",
+					Href:  "https://example.com/details",
 				},
 			},
 			Defaults: api.WidgetBaseDimensions{
@@ -209,7 +209,7 @@ func TestGetWidgetMappings(t *testing.T) {
 			Module: "test-module",
 			Config: api.WidgetConfiguration{
 				Title:       "Test Widget with Permissions",
-				Icon:    stringPtr("test-icon"),
+				Icon:        stringPtr("test-icon"),
 				Permissions: &permissions,
 			},
 			Defaults: api.WidgetBaseDimensions{
@@ -242,7 +242,7 @@ func TestGetWidgetMappings(t *testing.T) {
 			Module: "duplicate-module",
 			Config: api.WidgetConfiguration{
 				Title: "First Widget",
-				Icon:    stringPtr("first-icon"),
+				Icon:  stringPtr("first-icon"),
 			},
 			Defaults: api.WidgetBaseDimensions{
 				Width:     test_util.IntPTR(1),
@@ -258,7 +258,7 @@ func TestGetWidgetMappings(t *testing.T) {
 			Module: "duplicate-module",
 			Config: api.WidgetConfiguration{
 				Title: "Second Widget",
-				Icon:    stringPtr("second-icon"),
+				Icon:  stringPtr("second-icon"),
 			},
 			Defaults: api.WidgetBaseDimensions{
 				Width:     test_util.IntPTR(2),
@@ -305,7 +305,7 @@ func TestGetWidgetMappings(t *testing.T) {
 			Module: "same-module",
 			Config: api.WidgetConfiguration{
 				Title: "Widget Without Import",
-				Icon:    stringPtr("no-import-icon"),
+				Icon:  stringPtr("no-import-icon"),
 			},
 			Defaults: api.WidgetBaseDimensions{
 				Width:     test_util.IntPTR(1),
@@ -323,7 +323,7 @@ func TestGetWidgetMappings(t *testing.T) {
 			ImportName: &importName,
 			Config: api.WidgetConfiguration{
 				Title: "Widget With Import",
-				Icon:    stringPtr("import-icon"),
+				Icon:  stringPtr("import-icon"),
 			},
 			Defaults: api.WidgetBaseDimensions{
 				Width:     test_util.IntPTR(2),
