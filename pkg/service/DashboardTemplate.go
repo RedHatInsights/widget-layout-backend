@@ -171,10 +171,12 @@ func ChangeDefaultTemplate(templateID int64, id identity.XRHID) (api.DashboardTe
 		return api.DashboardTemplate{}, http.StatusForbidden, errors.New("unauthorized")
 	}
 	tx := database.DB.Begin()
-	// Update all other templates with the same base to unset their default status
+	// Update all other templates with the same base to unset their default status.
 	// Use map update because GORM skips zero-value fields in struct updates,
 	// and false is the zero value for bool.
-	err = tx.Model(&api.DashboardTemplate{}).Where("name = ? AND user_id = ? AND id <> ?", template.TemplateBase.Name, id.Identity.User.UserID, template.ID).Updates(map[string]interface{}{"default": false}).Error
+	// Use "is_default" column name (not "default") to avoid the SQL reserved keyword
+	// which causes silent 0-row updates in PostgreSQL.
+	err = tx.Model(&api.DashboardTemplate{}).Where("name = ? AND user_id = ? AND id <> ?", template.TemplateBase.Name, id.Identity.User.UserID, template.ID).Updates(map[string]interface{}{"is_default": false}).Error
 	if err != nil {
 		logrus.Errorf("Failed to unset default dashboard template with ID %d: %v", templateID, err)
 		tx.Rollback()

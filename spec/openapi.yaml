@@ -734,6 +734,7 @@ components:
           description: Whether the template is the default template
           x-oapi-codegen-extra-tags:
             yaml: "default,omitempty"
+            gorm: column:is_default
           x-go-type-skip-optional-pointer: true
       required:
         - ID

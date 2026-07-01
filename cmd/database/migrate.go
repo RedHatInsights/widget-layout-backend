@@ -24,6 +24,18 @@ func main() {
 		}
 	}()
 
+	// Rename "default" column to "is_default" to avoid SQL reserved keyword
+	// that causes silent 0-row updates in PostgreSQL.
+	// Check if the old column exists before renaming to make this idempotent.
+	if tx.Migrator().HasColumn(&models.DashboardTemplate{}, "default") {
+		if err := tx.Migrator().RenameColumn(&models.DashboardTemplate{}, "default", "is_default"); err != nil {
+			logrus.Errorln("Failed to rename 'default' column to 'is_default':", err.Error())
+			tx.Rollback()
+			return
+		}
+		logrus.Infoln("Renamed column 'default' to 'is_default'")
+	}
+
 	// migrate the base models
 	if err := tx.AutoMigrate(
 		&models.DashboardTemplate{},
