@@ -232,7 +232,7 @@ def do_preflight_import():
         all_ok &= check("dashboard_templates table exists", False, str(e))
 
     # 3. Expected columns exist
-    expected_cols = {"user_id", "dashboard_name", "default", "name", "display_name",
+    expected_cols = {"user_id", "dashboard_name", "is_default", "name", "display_name",
                      "sm", "md", "lg", "xl", "created_at", "updated_at", "deleted_at"}
     try:
         cur.execute("""
@@ -250,7 +250,7 @@ def do_preflight_import():
     try:
         cur.execute("BEGIN")
         cur.execute("""
-            INSERT INTO dashboard_templates (user_id, dashboard_name, "default", name, display_name, sm, md, lg, xl, created_at, updated_at, deleted_at)
+            INSERT INTO dashboard_templates (user_id, dashboard_name, is_default, name, display_name, sm, md, lg, xl, created_at, updated_at, deleted_at)
             VALUES ('__preflight_test__', '__test__', false, '__test__', '__test__', '[]'::jsonb, '[]'::jsonb, '[]'::jsonb, '[]'::jsonb, NOW(), NOW(), NULL)
         """)
         conn.rollback()
@@ -389,7 +389,7 @@ def do_export():
                     bad_row_count += 1
                     continue
 
-                cols = "user_id, dashboard_name, \"default\", name, display_name, sm, md, lg, xl, created_at, updated_at, deleted_at"
+                cols = "user_id, dashboard_name, is_default, name, display_name, sm, md, lg, xl, created_at, updated_at, deleted_at"
                 vals = ", ".join([
                     sql_value(row["user_id"]),
                     sql_value(row["dashboard_name"]),

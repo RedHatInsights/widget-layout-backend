@@ -81,7 +81,7 @@ Same as staging. The migration script handles these translations automatically:
 | `id` (uint, PK) | `id` (uint, PK) | Auto-generated in target (not copied) |
 | `user_identity_id` (uint, FK) | `user_id` (string) | JOIN `user_identities` table to resolve `account_id` |
 | _(does not exist)_ | `dashboard_name` (string) | Copied from `display_name` |
-| `default` (bool) | `default` (bool) | Direct copy |
+| `default` (bool) | `is_default` (bool) | Direct copy (column renamed by GORM migration) |
 | `name` (string, embedded) | `name` (string, embedded) | Translated via NAME_MAP (e.g., `landingPage` → `landing-landingPage`) |
 | `display_name` (string, embedded) | `display_name` (string, embedded) | Direct copy |
 | `sm` (JSON) | `sm` (JSON) | Widget item `"i"` fields transformed via WIDGET_ID_MAP (e.g., `rhel#rhel` → `landing-./RhelWidget`) |
@@ -755,7 +755,7 @@ The debug-container sets `PGHOST`, `PGUSER`, `PGPASSWORD`, `PGDATABASE` automati
 psql -c "SELECT COUNT(*) FROM dashboard_templates"
 
 # Sample rows — verify user_id and dashboard_name are populated
-psql -c "SELECT id, user_id, dashboard_name, name, display_name, \"default\" FROM dashboard_templates LIMIT 10"
+psql -c "SELECT id, user_id, dashboard_name, name, display_name, is_default FROM dashboard_templates LIMIT 10"
 
 # Check no NULL/empty user_ids (should return 0)
 psql -c "SELECT COUNT(*) FROM dashboard_templates WHERE user_id IS NULL OR user_id = ''"
