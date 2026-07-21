@@ -232,7 +232,7 @@ def do_preflight_import():
         all_ok &= check("dashboard_templates table exists", False, str(e))
 
     # 3. Expected columns exist
-    expected_cols = {"user_id", "dashboard_name", "default", "name", "display_name",
+    expected_cols = {"user_id", "dashboard_name", "is_default", "name", "display_name",
                      "sm", "md", "lg", "xl", "created_at", "updated_at", "deleted_at"}
     try:
         cur.execute("""
@@ -250,7 +250,7 @@ def do_preflight_import():
     try:
         cur.execute("BEGIN")
         cur.execute("""
-            INSERT INTO dashboard_templates (user_id, dashboard_name, "default", name, display_name, sm, md, lg, xl, created_at, updated_at, deleted_at)
+            INSERT INTO dashboard_templates (user_id, dashboard_name, is_default, name, display_name, sm, md, lg, xl, created_at, updated_at, deleted_at)
             VALUES ('__preflight_test__', '__test__', false, '__test__', '__test__', '[]'::jsonb, '[]'::jsonb, '[]'::jsonb, '[]'::jsonb, NOW(), NOW(), NULL)
         """)
         conn.rollback()
@@ -313,6 +313,8 @@ def do_preflight_import():
 
 
 def do_export():
+    BATCH_SIZE = 10000
+
     conn = get_connection()
     cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
@@ -324,6 +326,16 @@ def do_export():
         print("No records to migrate.")
         return
 
+    cur.close()
+
+    # Chrome-service uses bare names (e.g., "landingPage").
+    # Widget-layout uses "{frontendRef}-{name}" (e.g., "landing-landingPage").
+    NAME_MAP = {
+        "landingPage": "landing-landingPage",
+    }
+
+    # Use a server-side cursor to stream rows without loading all into memory
+    cur = conn.cursor("export_cursor", cursor_factory=psycopg2.extras.RealDictCursor)
     cur.execute("""
         SELECT
             ui.account_id AS user_id,
@@ -343,77 +355,81 @@ def do_export():
         WHERE dt.deleted_at IS NULL
     """)
 
-    rows = cur.fetchall()
-    print(f"Fetched {len(rows)} rows (with user_id resolved)")
-
-    # Chrome-service uses bare names (e.g., "landingPage").
-    # Widget-layout uses "{frontendRef}-{name}" (e.g., "landing-landingPage").
-    NAME_MAP = {
-        "landingPage": "landing-landingPage",
-    }
-    unmapped = set()
-    for row in rows:
-        original = row["name"]
-        if original in NAME_MAP:
-            row["name"] = NAME_MAP[original]
-        else:
-            unmapped.add(original)
-    if unmapped:
-        print(f"ERROR: {len(unmapped)} unmapped name values: {unmapped}")
-        print("Add these to NAME_MAP before proceeding.")
-        sys.exit(1)
-
-    # Transform widget item "i" fields in JSONB columns (sm, md, lg, xl)
+    insert_count = 0
+    all_unmapped_names = set()
     all_unmapped_ids = set()
-    for row in rows:
-        for col in ("sm", "md", "lg", "xl"):
-            if row[col] is not None:
-                row[col], unmapped = transform_widget_ids(row[col])
-                all_unmapped_ids |= unmapped
-    if all_unmapped_ids:
-        print(f"ERROR: {len(all_unmapped_ids)} unmapped widget IDs in JSONB: {sorted(all_unmapped_ids)}")
-        print("Add these to WIDGET_ID_MAP before proceeding.")
-        cur.close()
-        conn.close()
-        sys.exit(1)
-    print("Transformed widget IDs in JSONB columns (sm/md/lg/xl)")
-
-    bad_rows = [r for r in rows if not r["user_id"]]
-    if bad_rows:
-        print(f"ERROR: {len(bad_rows)} rows have NULL/empty user_id:")
-        for r in bad_rows:
-            print(f"  name={r['name']}, display_name={r['display_name']}")
-        print("Aborting — fix user_identities data before retrying.")
-        cur.close()
-        conn.close()
-        sys.exit(1)
+    bad_row_count = 0
 
     with open(OUTPUT_FILE, "w") as f:
         f.write("-- Widget Migration: chrome-service -> widget-layout-backend\n")
         f.write("-- Auto-generated. Review before running.\n\n")
         f.write("BEGIN;\n\n")
 
-        for row in rows:
-            cols = "user_id, dashboard_name, \"default\", name, display_name, sm, md, lg, xl, created_at, updated_at, deleted_at"
-            vals = ", ".join([
-                sql_value(row["user_id"]),
-                sql_value(row["dashboard_name"]),
-                sql_value(row["default"]),
-                sql_value(row["name"]),
-                sql_value(row["display_name"]),
-                sql_value(row["sm"]),
-                sql_value(row["md"]),
-                sql_value(row["lg"]),
-                sql_value(row["xl"]),
-                sql_value(row["created_at"]),
-                sql_value(row["updated_at"]),
-                sql_value(row["deleted_at"]),
-            ])
-            f.write(f"INSERT INTO dashboard_templates ({cols})\nVALUES ({vals});\n\n")
+        while True:
+            rows = cur.fetchmany(BATCH_SIZE)
+            if not rows:
+                break
+
+            for row in rows:
+                # Name translation
+                original = row["name"]
+                if original in NAME_MAP:
+                    row["name"] = NAME_MAP[original]
+                else:
+                    all_unmapped_names.add(original)
+                    continue
+
+                # Widget ID transformation
+                for col in ("sm", "md", "lg", "xl"):
+                    if row[col] is not None:
+                        row[col], unmapped = transform_widget_ids(row[col])
+                        all_unmapped_ids |= unmapped
+
+                if not row["user_id"]:
+                    bad_row_count += 1
+                    continue
+
+                cols = "user_id, dashboard_name, is_default, name, display_name, sm, md, lg, xl, created_at, updated_at, deleted_at"
+                vals = ", ".join([
+                    sql_value(row["user_id"]),
+                    sql_value(row["dashboard_name"]),
+                    sql_value(row["default"]),
+                    sql_value(row["name"]),
+                    sql_value(row["display_name"]),
+                    sql_value(row["sm"]),
+                    sql_value(row["md"]),
+                    sql_value(row["lg"]),
+                    sql_value(row["xl"]),
+                    sql_value(row["created_at"]),
+                    sql_value(row["updated_at"]),
+                    sql_value(row["deleted_at"]),
+                ])
+                f.write(f"INSERT INTO dashboard_templates ({cols})\nVALUES ({vals});\n\n")
+                insert_count += 1
+
+            print(f"  Processed {insert_count} rows so far...")
 
         f.write("COMMIT;\n")
 
-    insert_count = sum(1 for line in open(OUTPUT_FILE) if line.startswith("INSERT"))
+    cur.close()
+    conn.close()
+
+    if all_unmapped_names:
+        print(f"ERROR: {len(all_unmapped_names)} unmapped name values: {all_unmapped_names}")
+        print("Add these to NAME_MAP before proceeding.")
+        sys.exit(1)
+
+    if all_unmapped_ids:
+        print(f"ERROR: {len(all_unmapped_ids)} unmapped widget IDs in JSONB: {sorted(all_unmapped_ids)}")
+        print("Add these to WIDGET_ID_MAP before proceeding.")
+        sys.exit(1)
+
+    if bad_row_count:
+        print(f"ERROR: {bad_row_count} rows have NULL/empty user_id.")
+        print("Aborting — fix user_identities data before retrying.")
+        sys.exit(1)
+
+    print(f"Transformed widget IDs in JSONB columns (sm/md/lg/xl)")
     print(f"Generated {insert_count} INSERT statements in {OUTPUT_FILE}")
 
     with open(META_FILE, "w") as f:
@@ -427,20 +443,21 @@ def do_export():
     print(f"  3. Copy in:  oc cp ./widget_migration.sql <target-pod>:{OUTPUT_FILE}")
     print("  4. Run import: python3 widget-migration-script.py import")
 
-    cur.close()
-    conn.close()
-
 
 def do_import(auto_confirm=False):
+    BATCH_SIZE = 5000
+
     if not os.path.exists(OUTPUT_FILE):
         print(f"ERROR: {OUTPUT_FILE} not found.")
         print("Copy it from the export debug-container first.")
         sys.exit(1)
 
+    # Count INSERTs without loading entire file into memory
+    insert_count = 0
     with open(OUTPUT_FILE) as f:
-        sql = f.read()
-
-    insert_count = sql.count("INSERT INTO")
+        for line in f:
+            if line.startswith("INSERT INTO"):
+                insert_count += 1
     print(f"Found {insert_count} INSERT statements in {OUTPUT_FILE}")
 
     if auto_confirm:
@@ -455,15 +472,32 @@ def do_import(auto_confirm=False):
     cur = conn.cursor()
 
     print("Running import...")
+    cur.execute("BEGIN")
     try:
-        cur.execute(sql)
+        executed = 0
+        stmt = []
+        with open(OUTPUT_FILE) as f:
+            for line in f:
+                # Skip comments, empty lines, BEGIN/COMMIT (we manage the transaction)
+                stripped = line.strip()
+                if not stripped or stripped.startswith("--") or stripped in ("BEGIN;", "COMMIT;"):
+                    continue
+                stmt.append(line)
+                if stripped.endswith(";"):
+                    cur.execute("".join(stmt))
+                    stmt = []
+                    executed += 1
+                    if executed % BATCH_SIZE == 0:
+                        print(f"  Imported {executed}/{insert_count} rows...")
         conn.commit()
     except psycopg2.Error as e:
         conn.rollback()
-        print(f"ERROR: Import failed, transaction rolled back: {e}")
+        print(f"ERROR: Import failed at row {executed}, transaction rolled back: {e}")
         cur.close()
         conn.close()
         sys.exit(1)
+
+    print(f"  Imported {executed}/{insert_count} rows...")
 
     cur.execute("SELECT COUNT(*) FROM dashboard_templates")
     count = cur.fetchone()[0]
