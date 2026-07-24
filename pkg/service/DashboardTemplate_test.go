@@ -551,6 +551,618 @@ func TestChangeDefaultTemplate(t *testing.T) {
 	})
 }
 
+func TestGetTemplateByID(t *testing.T) {
+	t.Run("should return template for matching user", func(t *testing.T) {
+		testUserID := test_util.GetUniqueUserID()
+		testIdentity := test_util.GenerateIdentityStructFromTemplate(
+			xrhidgen.Identity{},
+			xrhidgen.User{UserID: stringPtr(testUserID)},
+			xrhidgen.Entitlements{},
+		)
+
+		template := test_util.MockDashboardTemplateWithSpecificUser(testUserID)
+		require.NoError(t, database.DB.Create(&template).Error)
+
+		result, status, err := service.GetTemplateByID(int64(template.ID), testIdentity)
+
+		assert.NoError(t, err)
+		assert.Equal(t, http.StatusOK, status)
+		assert.Equal(t, template.ID, result.ID)
+		assert.Equal(t, testUserID, result.UserId)
+	})
+
+	t.Run("should return 404 for non-existent template", func(t *testing.T) {
+		testUserID := test_util.GetUniqueUserID()
+		testIdentity := test_util.GenerateIdentityStructFromTemplate(
+			xrhidgen.Identity{},
+			xrhidgen.User{UserID: stringPtr(testUserID)},
+			xrhidgen.Entitlements{},
+		)
+
+		_, status, err := service.GetTemplateByID(int64(test_util.NonExistentID), testIdentity)
+
+		assert.Error(t, err)
+		assert.Equal(t, http.StatusNotFound, status)
+	})
+
+	t.Run("should return 404 when template belongs to different user", func(t *testing.T) {
+		ownerID := test_util.GetUniqueUserID()
+		otherID := test_util.GetUniqueUserID()
+		otherIdentity := test_util.GenerateIdentityStructFromTemplate(
+			xrhidgen.Identity{},
+			xrhidgen.User{UserID: stringPtr(otherID)},
+			xrhidgen.Entitlements{},
+		)
+
+		template := test_util.MockDashboardTemplateWithSpecificUser(ownerID)
+		require.NoError(t, database.DB.Create(&template).Error)
+
+		_, status, err := service.GetTemplateByID(int64(template.ID), otherIdentity)
+
+		assert.Error(t, err)
+		assert.Equal(t, http.StatusNotFound, status, "Should return 404 because query is user-scoped")
+	})
+}
+
+func TestUpdateDashboardTemplate(t *testing.T) {
+	t.Run("should update template config successfully", func(t *testing.T) {
+		testUserID := test_util.GetUniqueUserID()
+		testIdentity := test_util.GenerateIdentityStructFromTemplate(
+			xrhidgen.Identity{},
+			xrhidgen.User{UserID: stringPtr(testUserID)},
+			xrhidgen.Entitlements{},
+		)
+
+		template := test_util.MockDashboardTemplateWithSpecificUser(testUserID)
+		require.NoError(t, database.DB.Create(&template).Error)
+
+		newConfig := api.DashboardTemplateConfig{
+			Sm: datatypes.NewJSONType([]api.WidgetItem{
+				{Width: 1, Height: 3, WidgetType: "updated-widget", X: test_util.IntPTR(0), Y: test_util.IntPTR(0), MaxHeight: test_util.IntPTR(5), MinHeight: test_util.IntPTR(1)},
+			}),
+			Md: datatypes.NewJSONType([]api.WidgetItem{}),
+			Lg: datatypes.NewJSONType([]api.WidgetItem{}),
+			Xl: datatypes.NewJSONType([]api.WidgetItem{}),
+		}
+
+		result, status, err := service.UpdateDashboardTemplate(int64(template.ID), newConfig, testIdentity)
+
+		assert.NoError(t, err)
+		assert.Equal(t, http.StatusOK, status)
+		assert.Equal(t, template.ID, result.ID)
+
+		smWidgets := result.TemplateConfig.Sm.Data()
+		require.Len(t, smWidgets, 1)
+		assert.Equal(t, "updated-widget", smWidgets[0].WidgetType)
+	})
+
+	t.Run("should return 404 for non-existent template", func(t *testing.T) {
+		testUserID := test_util.GetUniqueUserID()
+		testIdentity := test_util.GenerateIdentityStructFromTemplate(
+			xrhidgen.Identity{},
+			xrhidgen.User{UserID: stringPtr(testUserID)},
+			xrhidgen.Entitlements{},
+		)
+
+		newConfig := api.DashboardTemplateConfig{
+			Sm: datatypes.NewJSONType([]api.WidgetItem{}),
+			Md: datatypes.NewJSONType([]api.WidgetItem{}),
+			Lg: datatypes.NewJSONType([]api.WidgetItem{}),
+			Xl: datatypes.NewJSONType([]api.WidgetItem{}),
+		}
+
+		_, status, err := service.UpdateDashboardTemplate(int64(test_util.NonExistentID), newConfig, testIdentity)
+
+		assert.Error(t, err)
+		assert.Equal(t, http.StatusNotFound, status)
+	})
+
+	t.Run("should return 403 for unauthorized user", func(t *testing.T) {
+		ownerID := test_util.GetUniqueUserID()
+		otherID := test_util.GetUniqueUserID()
+		otherIdentity := test_util.GenerateIdentityStructFromTemplate(
+			xrhidgen.Identity{},
+			xrhidgen.User{UserID: stringPtr(otherID)},
+			xrhidgen.Entitlements{},
+		)
+
+		template := test_util.MockDashboardTemplateWithSpecificUser(ownerID)
+		require.NoError(t, database.DB.Create(&template).Error)
+
+		newConfig := api.DashboardTemplateConfig{
+			Sm: datatypes.NewJSONType([]api.WidgetItem{}),
+			Md: datatypes.NewJSONType([]api.WidgetItem{}),
+			Lg: datatypes.NewJSONType([]api.WidgetItem{}),
+			Xl: datatypes.NewJSONType([]api.WidgetItem{}),
+		}
+
+		_, status, err := service.UpdateDashboardTemplate(int64(template.ID), newConfig, otherIdentity)
+
+		assert.Error(t, err)
+		assert.Equal(t, http.StatusForbidden, status)
+	})
+
+	t.Run("should persist updated config to database", func(t *testing.T) {
+		testUserID := test_util.GetUniqueUserID()
+		testIdentity := test_util.GenerateIdentityStructFromTemplate(
+			xrhidgen.Identity{},
+			xrhidgen.User{UserID: stringPtr(testUserID)},
+			xrhidgen.Entitlements{},
+		)
+
+		template := test_util.MockDashboardTemplateWithSpecificUser(testUserID)
+		require.NoError(t, database.DB.Create(&template).Error)
+
+		newConfig := api.DashboardTemplateConfig{
+			Sm: datatypes.NewJSONType([]api.WidgetItem{
+				{Width: 1, Height: 5, WidgetType: "persisted-widget", X: test_util.IntPTR(0), Y: test_util.IntPTR(0), MaxHeight: test_util.IntPTR(8), MinHeight: test_util.IntPTR(1)},
+			}),
+			Md: datatypes.NewJSONType([]api.WidgetItem{}),
+			Lg: datatypes.NewJSONType([]api.WidgetItem{}),
+			Xl: datatypes.NewJSONType([]api.WidgetItem{}),
+		}
+
+		_, _, err := service.UpdateDashboardTemplate(int64(template.ID), newConfig, testIdentity)
+		require.NoError(t, err)
+
+		var dbTemplate api.DashboardTemplate
+		require.NoError(t, database.DB.First(&dbTemplate, template.ID).Error)
+		smWidgets := dbTemplate.TemplateConfig.Sm.Data()
+		require.Len(t, smWidgets, 1)
+		assert.Equal(t, "persisted-widget", smWidgets[0].WidgetType)
+	})
+}
+
+func TestDeleteDashboardTemplate(t *testing.T) {
+	t.Run("should delete template successfully", func(t *testing.T) {
+		testUserID := test_util.GetUniqueUserID()
+		testIdentity := test_util.GenerateIdentityStructFromTemplate(
+			xrhidgen.Identity{},
+			xrhidgen.User{UserID: stringPtr(testUserID)},
+			xrhidgen.Entitlements{},
+		)
+
+		template := test_util.MockDashboardTemplateWithSpecificUser(testUserID)
+		require.NoError(t, database.DB.Create(&template).Error)
+
+		status, err := service.DeleteDashboardTemplate(int64(template.ID), testIdentity)
+
+		assert.NoError(t, err)
+		assert.Equal(t, http.StatusNoContent, status)
+
+		// Verify template is permanently deleted
+		var dbTemplate api.DashboardTemplate
+		err = database.DB.First(&dbTemplate, template.ID).Error
+		assert.Error(t, err, "Template should be permanently deleted")
+	})
+
+	t.Run("should return 404 for non-existent template", func(t *testing.T) {
+		testUserID := test_util.GetUniqueUserID()
+		testIdentity := test_util.GenerateIdentityStructFromTemplate(
+			xrhidgen.Identity{},
+			xrhidgen.User{UserID: stringPtr(testUserID)},
+			xrhidgen.Entitlements{},
+		)
+
+		status, err := service.DeleteDashboardTemplate(int64(test_util.NonExistentID), testIdentity)
+
+		assert.Error(t, err)
+		assert.Equal(t, http.StatusNotFound, status)
+	})
+
+	t.Run("should return 403 for unauthorized user", func(t *testing.T) {
+		ownerID := test_util.GetUniqueUserID()
+		otherID := test_util.GetUniqueUserID()
+		otherIdentity := test_util.GenerateIdentityStructFromTemplate(
+			xrhidgen.Identity{},
+			xrhidgen.User{UserID: stringPtr(otherID)},
+			xrhidgen.Entitlements{},
+		)
+
+		template := test_util.MockDashboardTemplateWithSpecificUser(ownerID)
+		require.NoError(t, database.DB.Create(&template).Error)
+
+		status, err := service.DeleteDashboardTemplate(int64(template.ID), otherIdentity)
+
+		assert.Error(t, err)
+		assert.Equal(t, http.StatusForbidden, status)
+
+		// Verify template still exists
+		var dbTemplate api.DashboardTemplate
+		err = database.DB.First(&dbTemplate, template.ID).Error
+		assert.NoError(t, err, "Template should still exist after unauthorized delete attempt")
+	})
+}
+
+func TestCopyDashboardTemplate(t *testing.T) {
+	t.Run("should copy template for requesting user", func(t *testing.T) {
+		ownerID := test_util.GetUniqueUserID()
+		copierID := test_util.GetUniqueUserID()
+		copierIdentity := test_util.GenerateIdentityStructFromTemplate(
+			xrhidgen.Identity{},
+			xrhidgen.User{UserID: stringPtr(copierID)},
+			xrhidgen.Entitlements{},
+		)
+
+		template := test_util.MockDashboardTemplateWithSpecificUser(ownerID)
+		require.NoError(t, database.DB.Create(&template).Error)
+
+		result, status, err := service.CopyDashboardTemplate(int64(template.ID), copierIdentity, nil)
+
+		assert.NoError(t, err)
+		assert.Equal(t, http.StatusOK, status)
+		assert.NotEqual(t, template.ID, result.ID, "Copied template should have a new ID")
+		assert.Equal(t, copierID, result.UserId, "Copied template should belong to requesting user")
+		assert.Equal(t, template.TemplateBase.Name, result.TemplateBase.Name)
+	})
+
+	t.Run("should use custom dashboard name when provided", func(t *testing.T) {
+		testUserID := test_util.GetUniqueUserID()
+		testIdentity := test_util.GenerateIdentityStructFromTemplate(
+			xrhidgen.Identity{},
+			xrhidgen.User{UserID: stringPtr(testUserID)},
+			xrhidgen.Entitlements{},
+		)
+
+		template := test_util.MockDashboardTemplateWithSpecificUser(testUserID)
+		require.NoError(t, database.DB.Create(&template).Error)
+
+		customName := "My Custom Copy"
+		result, status, err := service.CopyDashboardTemplate(int64(template.ID), testIdentity, &customName)
+
+		assert.NoError(t, err)
+		assert.Equal(t, http.StatusOK, status)
+		assert.Equal(t, "My Custom Copy", result.DashboardName)
+	})
+
+	t.Run("should return 404 for non-existent template", func(t *testing.T) {
+		testUserID := test_util.GetUniqueUserID()
+		testIdentity := test_util.GenerateIdentityStructFromTemplate(
+			xrhidgen.Identity{},
+			xrhidgen.User{UserID: stringPtr(testUserID)},
+			xrhidgen.Entitlements{},
+		)
+
+		_, status, err := service.CopyDashboardTemplate(int64(test_util.NonExistentID), testIdentity, nil)
+
+		assert.Error(t, err)
+		assert.Equal(t, http.StatusNotFound, status)
+	})
+
+	t.Run("should not use empty dashboard name", func(t *testing.T) {
+		testUserID := test_util.GetUniqueUserID()
+		testIdentity := test_util.GenerateIdentityStructFromTemplate(
+			xrhidgen.Identity{},
+			xrhidgen.User{UserID: stringPtr(testUserID)},
+			xrhidgen.Entitlements{},
+		)
+
+		template := test_util.MockDashboardTemplateWithSpecificUser(testUserID)
+		template.DashboardName = "Original Name"
+		require.NoError(t, database.DB.Create(&template).Error)
+
+		emptyName := ""
+		result, status, err := service.CopyDashboardTemplate(int64(template.ID), testIdentity, &emptyName)
+
+		assert.NoError(t, err)
+		assert.Equal(t, http.StatusOK, status)
+		// Copy only takes TemplateBase + TemplateConfig from original, not DashboardName
+		// Empty string pointer is ignored, so DashboardName defaults to ""
+		assert.Equal(t, "", result.DashboardName, "Should default to empty when empty string provided")
+	})
+}
+
+func TestResetDashboardTemplate(t *testing.T) {
+	t.Run("should reset template to base config", func(t *testing.T) {
+		service.BaseTemplateRegistry = api.BaseWidgetDashboardTemplateRegistry{}
+		baseConfig := api.DashboardTemplateConfig{
+			Sm: datatypes.NewJSONType([]api.WidgetItem{
+				{Width: 1, Height: 2, WidgetType: "base-widget", X: test_util.IntPTR(0), Y: test_util.IntPTR(0), MaxHeight: test_util.IntPTR(4), MinHeight: test_util.IntPTR(1)},
+			}),
+			Md: datatypes.NewJSONType([]api.WidgetItem{}),
+			Lg: datatypes.NewJSONType([]api.WidgetItem{}),
+			Xl: datatypes.NewJSONType([]api.WidgetItem{}),
+		}
+		service.BaseTemplateRegistry.AddBase(api.BaseWidgetDashboardTemplate{
+			Name:           "reset-test-base",
+			DisplayName:    "Reset Test Base",
+			TemplateConfig: baseConfig,
+		})
+
+		testUserID := test_util.GetUniqueUserID()
+		testIdentity := test_util.GenerateIdentityStructFromTemplate(
+			xrhidgen.Identity{},
+			xrhidgen.User{UserID: stringPtr(testUserID)},
+			xrhidgen.Entitlements{},
+		)
+
+		template := test_util.MockDashboardTemplateWithSpecificUser(testUserID)
+		template.TemplateBase.Name = "reset-test-base"
+		require.NoError(t, database.DB.Create(&template).Error)
+
+		result, status, err := service.ResetDashboardTemplate(int64(template.ID), testIdentity)
+
+		assert.NoError(t, err)
+		assert.Equal(t, http.StatusOK, status)
+
+		smWidgets := result.TemplateConfig.Sm.Data()
+		require.Len(t, smWidgets, 1)
+		assert.Equal(t, "base-widget", smWidgets[0].WidgetType, "Config should be reset to base template")
+	})
+
+	t.Run("should return 404 for non-existent template", func(t *testing.T) {
+		testUserID := test_util.GetUniqueUserID()
+		testIdentity := test_util.GenerateIdentityStructFromTemplate(
+			xrhidgen.Identity{},
+			xrhidgen.User{UserID: stringPtr(testUserID)},
+			xrhidgen.Entitlements{},
+		)
+
+		_, status, err := service.ResetDashboardTemplate(int64(test_util.NonExistentID), testIdentity)
+
+		assert.Error(t, err)
+		assert.Equal(t, http.StatusNotFound, status)
+	})
+
+	t.Run("should return 403 for unauthorized user", func(t *testing.T) {
+		ownerID := test_util.GetUniqueUserID()
+		otherID := test_util.GetUniqueUserID()
+		otherIdentity := test_util.GenerateIdentityStructFromTemplate(
+			xrhidgen.Identity{},
+			xrhidgen.User{UserID: stringPtr(otherID)},
+			xrhidgen.Entitlements{},
+		)
+
+		template := test_util.MockDashboardTemplateWithSpecificUser(ownerID)
+		require.NoError(t, database.DB.Create(&template).Error)
+
+		_, status, err := service.ResetDashboardTemplate(int64(template.ID), otherIdentity)
+
+		assert.Error(t, err)
+		assert.Equal(t, http.StatusForbidden, status)
+	})
+
+	t.Run("should return 404 when base template not found in registry", func(t *testing.T) {
+		service.BaseTemplateRegistry = api.BaseWidgetDashboardTemplateRegistry{}
+
+		testUserID := test_util.GetUniqueUserID()
+		testIdentity := test_util.GenerateIdentityStructFromTemplate(
+			xrhidgen.Identity{},
+			xrhidgen.User{UserID: stringPtr(testUserID)},
+			xrhidgen.Entitlements{},
+		)
+
+		template := test_util.MockDashboardTemplateWithSpecificUser(testUserID)
+		template.TemplateBase.Name = "non-existent-base"
+		require.NoError(t, database.DB.Create(&template).Error)
+
+		_, status, err := service.ResetDashboardTemplate(int64(template.ID), testIdentity)
+
+		assert.Error(t, err)
+		assert.Equal(t, http.StatusNotFound, status)
+		assert.Contains(t, err.Error(), "base template")
+	})
+}
+
+func TestExportWidgetDashboardTemplate(t *testing.T) {
+	t.Run("should export template config and base", func(t *testing.T) {
+		testUserID := test_util.GetUniqueUserID()
+		testIdentity := test_util.GenerateIdentityStructFromTemplate(
+			xrhidgen.Identity{},
+			xrhidgen.User{UserID: stringPtr(testUserID)},
+			xrhidgen.Entitlements{},
+		)
+
+		template := test_util.MockDashboardTemplateWithSpecificUser(testUserID)
+		template.TemplateBase.Name = "export-test"
+		template.TemplateBase.DisplayName = "Export Test"
+		require.NoError(t, database.DB.Create(&template).Error)
+
+		result, status, err := service.ExportWidgetDashboardTemplate(int64(template.ID), testIdentity)
+
+		assert.NoError(t, err)
+		assert.Equal(t, http.StatusOK, status)
+		assert.Equal(t, "export-test", result.TemplateBase.Name)
+		assert.Equal(t, "Export Test", result.TemplateBase.DisplayName)
+		assert.NotNil(t, result.TemplateConfig.Sm.Data(), "Export should include config")
+	})
+
+	t.Run("should return 404 for non-existent template", func(t *testing.T) {
+		testUserID := test_util.GetUniqueUserID()
+		testIdentity := test_util.GenerateIdentityStructFromTemplate(
+			xrhidgen.Identity{},
+			xrhidgen.User{UserID: stringPtr(testUserID)},
+			xrhidgen.Entitlements{},
+		)
+
+		_, status, err := service.ExportWidgetDashboardTemplate(int64(test_util.NonExistentID), testIdentity)
+
+		assert.Error(t, err)
+		assert.Equal(t, http.StatusNotFound, status)
+	})
+
+	t.Run("should return 404 when template belongs to different user", func(t *testing.T) {
+		ownerID := test_util.GetUniqueUserID()
+		otherID := test_util.GetUniqueUserID()
+		otherIdentity := test_util.GenerateIdentityStructFromTemplate(
+			xrhidgen.Identity{},
+			xrhidgen.User{UserID: stringPtr(otherID)},
+			xrhidgen.Entitlements{},
+		)
+
+		template := test_util.MockDashboardTemplateWithSpecificUser(ownerID)
+		require.NoError(t, database.DB.Create(&template).Error)
+
+		_, status, err := service.ExportWidgetDashboardTemplate(int64(template.ID), otherIdentity)
+
+		assert.Error(t, err)
+		assert.Equal(t, http.StatusNotFound, status, "Export uses GetTemplateByID which is user-scoped")
+	})
+}
+
+func TestRenameDashboardTemplate(t *testing.T) {
+	t.Run("should rename template successfully", func(t *testing.T) {
+		testUserID := test_util.GetUniqueUserID()
+		testIdentity := test_util.GenerateIdentityStructFromTemplate(
+			xrhidgen.Identity{},
+			xrhidgen.User{UserID: stringPtr(testUserID)},
+			xrhidgen.Entitlements{},
+		)
+
+		template := test_util.MockDashboardTemplateWithSpecificUser(testUserID)
+		template.DashboardName = "Old Name"
+		require.NoError(t, database.DB.Create(&template).Error)
+
+		result, status, err := service.RenameDashboardTemplate(int64(template.ID), "New Name", testIdentity)
+
+		assert.NoError(t, err)
+		assert.Equal(t, http.StatusOK, status)
+		assert.Equal(t, "New Name", result.DashboardName)
+
+		// Verify persisted in DB
+		var dbTemplate api.DashboardTemplate
+		require.NoError(t, database.DB.First(&dbTemplate, template.ID).Error)
+		assert.Equal(t, "New Name", dbTemplate.DashboardName)
+	})
+
+	t.Run("should return 404 for non-existent template", func(t *testing.T) {
+		testUserID := test_util.GetUniqueUserID()
+		testIdentity := test_util.GenerateIdentityStructFromTemplate(
+			xrhidgen.Identity{},
+			xrhidgen.User{UserID: stringPtr(testUserID)},
+			xrhidgen.Entitlements{},
+		)
+
+		_, status, err := service.RenameDashboardTemplate(int64(test_util.NonExistentID), "New Name", testIdentity)
+
+		assert.Error(t, err)
+		assert.Equal(t, http.StatusNotFound, status)
+	})
+
+	t.Run("should return 403 for unauthorized user", func(t *testing.T) {
+		ownerID := test_util.GetUniqueUserID()
+		otherID := test_util.GetUniqueUserID()
+		otherIdentity := test_util.GenerateIdentityStructFromTemplate(
+			xrhidgen.Identity{},
+			xrhidgen.User{UserID: stringPtr(otherID)},
+			xrhidgen.Entitlements{},
+		)
+
+		template := test_util.MockDashboardTemplateWithSpecificUser(ownerID)
+		require.NoError(t, database.DB.Create(&template).Error)
+
+		_, status, err := service.RenameDashboardTemplate(int64(template.ID), "Unauthorized Name", otherIdentity)
+
+		assert.Error(t, err)
+		assert.Equal(t, http.StatusForbidden, status)
+	})
+}
+
+func TestImportDashboardTemplate(t *testing.T) {
+	t.Run("should import valid template", func(t *testing.T) {
+		testUserID := test_util.GetUniqueUserID()
+		testIdentity := test_util.GenerateIdentityStructFromTemplate(
+			xrhidgen.Identity{},
+			xrhidgen.User{UserID: stringPtr(testUserID)},
+			xrhidgen.Entitlements{},
+		)
+
+		importData := api.ImportWidgetLayoutJSONRequestBody{
+			DashboardName: "Imported Dashboard",
+			TemplateBase: api.DashboardTemplateBase{
+				Name:        "import-test",
+				DisplayName: "Import Test",
+			},
+			TemplateConfig: api.DashboardTemplateConfig{
+				Sm: datatypes.NewJSONType([]api.WidgetItem{
+					{Width: 1, Height: 2, WidgetType: "imported-widget", X: test_util.IntPTR(0), Y: test_util.IntPTR(0), MaxHeight: test_util.IntPTR(4), MinHeight: test_util.IntPTR(1)},
+				}),
+				Md: datatypes.NewJSONType([]api.WidgetItem{
+					{Width: 1, Height: 2, WidgetType: "imported-widget", X: test_util.IntPTR(0), Y: test_util.IntPTR(0), MaxHeight: test_util.IntPTR(4), MinHeight: test_util.IntPTR(1)},
+				}),
+				Lg: datatypes.NewJSONType([]api.WidgetItem{
+					{Width: 1, Height: 2, WidgetType: "imported-widget", X: test_util.IntPTR(0), Y: test_util.IntPTR(0), MaxHeight: test_util.IntPTR(4), MinHeight: test_util.IntPTR(1)},
+				}),
+				Xl: datatypes.NewJSONType([]api.WidgetItem{
+					{Width: 1, Height: 2, WidgetType: "imported-widget", X: test_util.IntPTR(0), Y: test_util.IntPTR(0), MaxHeight: test_util.IntPTR(4), MinHeight: test_util.IntPTR(1)},
+				}),
+			},
+		}
+
+		result, status, err := service.ImportDashboardTemplate(importData, testIdentity)
+
+		assert.NoError(t, err)
+		assert.Equal(t, http.StatusOK, status)
+		assert.NotZero(t, result.ID)
+		assert.Equal(t, testUserID, result.UserId)
+		assert.Equal(t, "Imported Dashboard", result.DashboardName)
+		assert.Equal(t, false, result.Default, "Imported template should not be default")
+
+		// Verify persisted
+		var dbTemplate api.DashboardTemplate
+		require.NoError(t, database.DB.First(&dbTemplate, result.ID).Error)
+		assert.Equal(t, testUserID, dbTemplate.UserId)
+	})
+
+	t.Run("should return 400 for invalid template - missing name", func(t *testing.T) {
+		testUserID := test_util.GetUniqueUserID()
+		testIdentity := test_util.GenerateIdentityStructFromTemplate(
+			xrhidgen.Identity{},
+			xrhidgen.User{UserID: stringPtr(testUserID)},
+			xrhidgen.Entitlements{},
+		)
+
+		importData := api.ImportWidgetLayoutJSONRequestBody{
+			DashboardName: "Invalid Import",
+			TemplateBase: api.DashboardTemplateBase{
+				Name:        "", // Empty name should fail validation
+				DisplayName: "Test",
+			},
+			TemplateConfig: api.DashboardTemplateConfig{
+				Sm: datatypes.NewJSONType([]api.WidgetItem{}),
+				Md: datatypes.NewJSONType([]api.WidgetItem{}),
+				Lg: datatypes.NewJSONType([]api.WidgetItem{}),
+				Xl: datatypes.NewJSONType([]api.WidgetItem{}),
+			},
+		}
+
+		_, status, err := service.ImportDashboardTemplate(importData, testIdentity)
+
+		assert.Error(t, err)
+		assert.Equal(t, http.StatusBadRequest, status)
+		assert.Contains(t, err.Error(), "name is required")
+	})
+
+	t.Run("should return 400 for invalid template - missing displayName", func(t *testing.T) {
+		testUserID := test_util.GetUniqueUserID()
+		testIdentity := test_util.GenerateIdentityStructFromTemplate(
+			xrhidgen.Identity{},
+			xrhidgen.User{UserID: stringPtr(testUserID)},
+			xrhidgen.Entitlements{},
+		)
+
+		importData := api.ImportWidgetLayoutJSONRequestBody{
+			DashboardName: "Invalid Import",
+			TemplateBase: api.DashboardTemplateBase{
+				Name:        "valid-name",
+				DisplayName: "", // Empty displayName should fail
+			},
+			TemplateConfig: api.DashboardTemplateConfig{
+				Sm: datatypes.NewJSONType([]api.WidgetItem{}),
+				Md: datatypes.NewJSONType([]api.WidgetItem{}),
+				Lg: datatypes.NewJSONType([]api.WidgetItem{}),
+				Xl: datatypes.NewJSONType([]api.WidgetItem{}),
+			},
+		}
+
+		_, status, err := service.ImportDashboardTemplate(importData, testIdentity)
+
+		assert.Error(t, err)
+		assert.Equal(t, http.StatusBadRequest, status)
+		assert.Contains(t, err.Error(), "displayName is required")
+	})
+}
+
 // Helper function for creating string pointers
 func stringPtr(s string) *string {
 	return &s
