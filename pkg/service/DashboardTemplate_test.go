@@ -17,6 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/subpop/xrhidgen"
 	"gorm.io/datatypes"
+	"gorm.io/gorm"
 )
 
 func TestMain(m *testing.M) {
@@ -733,7 +734,7 @@ func TestDeleteDashboardTemplate(t *testing.T) {
 		// Verify template is permanently deleted
 		var dbTemplate api.DashboardTemplate
 		err = database.DB.First(&dbTemplate, template.ID).Error
-		assert.Error(t, err, "Template should be permanently deleted")
+		assert.ErrorIs(t, err, gorm.ErrRecordNotFound, "Template should be permanently deleted")
 	})
 
 	t.Run("should return 404 for non-existent template", func(t *testing.T) {
@@ -853,6 +854,11 @@ func TestCopyDashboardTemplate(t *testing.T) {
 }
 
 func TestResetDashboardTemplate(t *testing.T) {
+	oldRegistry := service.BaseTemplateRegistry
+	t.Cleanup(func() {
+		service.BaseTemplateRegistry = oldRegistry
+	})
+
 	t.Run("should reset template to base config", func(t *testing.T) {
 		service.BaseTemplateRegistry = api.BaseWidgetDashboardTemplateRegistry{}
 		baseConfig := api.DashboardTemplateConfig{
