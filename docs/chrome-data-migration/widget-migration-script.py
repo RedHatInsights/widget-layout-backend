@@ -248,7 +248,6 @@ def do_preflight_import():
 
     # 4. INSERT permission (dry test)
     try:
-        cur.execute("BEGIN")
         cur.execute("""
             INSERT INTO dashboard_templates (user_id, dashboard_name, is_default, name, display_name, sm, md, lg, xl, created_at, updated_at, deleted_at)
             VALUES ('__preflight_test__', '__test__', false, '__test__', '__test__', '[]'::jsonb, '[]'::jsonb, '[]'::jsonb, '[]'::jsonb, NOW(), NOW(), NULL)
@@ -414,22 +413,32 @@ def do_export():
     cur.close()
     conn.close()
 
-    if all_unmapped_names:
-        print(f"ERROR: {len(all_unmapped_names)} unmapped name values: {all_unmapped_names}")
-        print("Add these to NAME_MAP before proceeding.")
+    def abort_export(reason):
+        for path in (OUTPUT_FILE, META_FILE):
+            if os.path.exists(path):
+                os.remove(path)
+        print(reason)
         sys.exit(1)
+
+    if all_unmapped_names:
+        abort_export(
+            f"ERROR: {len(all_unmapped_names)} unmapped name values: {all_unmapped_names}\n"
+            "Add these to NAME_MAP before proceeding."
+        )
 
     if all_unmapped_ids:
-        print(f"ERROR: {len(all_unmapped_ids)} unmapped widget IDs in JSONB: {sorted(all_unmapped_ids)}")
-        print("Add these to WIDGET_ID_MAP before proceeding.")
-        sys.exit(1)
+        abort_export(
+            f"ERROR: {len(all_unmapped_ids)} unmapped widget IDs in JSONB: {sorted(all_unmapped_ids)}\n"
+            "Add these to WIDGET_ID_MAP before proceeding."
+        )
 
     if bad_row_count:
-        print(f"ERROR: {bad_row_count} rows have NULL/empty user_id.")
-        print("Aborting — fix user_identities data before retrying.")
-        sys.exit(1)
+        abort_export(
+            f"ERROR: {bad_row_count} rows have NULL/empty user_id.\n"
+            "Aborting — fix user_identities data before retrying."
+        )
 
-    print(f"Transformed widget IDs in JSONB columns (sm/md/lg/xl)")
+    print("Transformed widget IDs in JSONB columns (sm/md/lg/xl)")
     print(f"Generated {insert_count} INSERT statements in {OUTPUT_FILE}")
 
     with open(META_FILE, "w") as f:
@@ -472,13 +481,11 @@ def do_import(auto_confirm=False):
     cur = conn.cursor()
 
     print("Running import...")
-    cur.execute("BEGIN")
     try:
-        executed = 0
+        executed_statements = 0
         stmt = []
         with open(OUTPUT_FILE) as f:
             for line in f:
-                # Skip comments, empty lines, BEGIN/COMMIT (we manage the transaction)
                 stripped = line.strip()
                 if not stripped or stripped.startswith("--") or stripped in ("BEGIN;", "COMMIT;"):
                     continue
@@ -486,18 +493,18 @@ def do_import(auto_confirm=False):
                 if stripped.endswith(";"):
                     cur.execute("".join(stmt))
                     stmt = []
-                    executed += 1
-                    if executed % BATCH_SIZE == 0:
-                        print(f"  Imported {executed}/{insert_count} rows...")
+                    executed_statements += 1
+                    if executed_statements % BATCH_SIZE == 0:
+                        print(f"  Imported {executed_statements}/{insert_count} statements...")
         conn.commit()
     except psycopg2.Error as e:
         conn.rollback()
-        print(f"ERROR: Import failed at row {executed}, transaction rolled back: {e}")
+        print(f"ERROR: Import failed at statement {executed_statements}, transaction rolled back: {e}")
         cur.close()
         conn.close()
         sys.exit(1)
 
-    print(f"  Imported {executed}/{insert_count} rows...")
+    print(f"  Imported {executed_statements}/{insert_count} statements...")
 
     cur.execute("SELECT COUNT(*) FROM dashboard_templates")
     count = cur.fetchone()[0]
