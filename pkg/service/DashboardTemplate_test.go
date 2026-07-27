@@ -29,7 +29,7 @@ func TestMain(m *testing.M) {
 
 	database.InitDb()
 	// Load the models into the tmp database
-	database.DB.AutoMigrate(
+	_ = database.DB.AutoMigrate(
 		&models.DashboardTemplate{},
 	)
 

@@ -32,6 +32,6 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	encoder.Close()
+	_ = encoder.Close()
 	fmt.Println(buf.String())
 }

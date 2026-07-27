@@ -54,7 +54,7 @@ func GenerateIdentityHeaderFromTemplate(identityTemplate xrhidgen.Identity, user
 	if err != nil {
 		panic(err)
 	}
-	encoder.Close()
+	_ = encoder.Close()
 	return buf.String()
 }
 

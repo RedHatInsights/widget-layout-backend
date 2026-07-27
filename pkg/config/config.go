@@ -64,7 +64,7 @@ const (
 )
 
 func init() {
-	godotenv.Load()
+	_ = godotenv.Load()
 	config = &WidgetLayoutConfig{}
 	level, ok := os.LookupEnv("LOG_LEVEL")
 	if !ok {

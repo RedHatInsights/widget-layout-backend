@@ -132,7 +132,7 @@ func (Server) DeleteWidgetLayoutById(w http.ResponseWriter, r *http.Request, das
 		return
 	}
 	w.WriteHeader(status)
-	w.Write(nil)
+	_, _ = w.Write(nil)
 }
 
 func (Server) RenameWidgetLayoutById(w http.ResponseWriter, r *http.Request, dashboardTemplateId int64) {

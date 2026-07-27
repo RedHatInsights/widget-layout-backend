@@ -337,13 +337,13 @@ func TestConfigurationIntegration(t *testing.T) {
 		originalEnv := os.Getenv("BASE_LAYOUTS")
 		defer func() {
 			if originalEnv != "" {
-				os.Setenv("BASE_LAYOUTS", originalEnv)
+				_ = os.Setenv("BASE_LAYOUTS", originalEnv)
 			} else {
-				os.Unsetenv("BASE_LAYOUTS")
+				_ = os.Unsetenv("BASE_LAYOUTS")
 			}
 		}()
 
-		os.Setenv("BASE_LAYOUTS", validBaseTemplateJSON)
+		_ = os.Setenv("BASE_LAYOUTS", validBaseTemplateJSON)
 
 		// Load from config (simulating what happens in init)
 		err := service.LoadBaseTemplatesFromConfig(os.Getenv("BASE_LAYOUTS"))

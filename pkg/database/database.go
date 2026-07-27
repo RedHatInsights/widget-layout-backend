@@ -12,7 +12,7 @@ var DB *gorm.DB
 
 func InitDb() {
 	var dialector gorm.Dialector
-	godotenv.Load()
+	_ = godotenv.Load()
 	cfg := config.GetConfig()
 	if cfg.TestMode {
 		dialector = sqlite.Open(cfg.DatabaseConfig.DBName)

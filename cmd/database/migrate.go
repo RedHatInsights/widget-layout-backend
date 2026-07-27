@@ -10,7 +10,7 @@ import (
 )
 
 func main() {
-	godotenv.Load()
+	_ = godotenv.Load()
 	database.InitDb()
 	// migrate models
 	tx := database.DB.Begin().Session(&gorm.Session{
