@@ -42,7 +42,7 @@ Migrate the `dashboard_templates` table from chrome-service DB to widget-layout-
 | **Target namespace** | `widget-layout-backend-prod` |
 | **Source DB secret** | `chrome-service-db` |
 | **Target DB secret** | `widget-layout-backend-db` |
-| **Method** | Python script using `psycopg2` inside debug-containers |
+| **Method** | Python script using `psycopg2` inside bare debug pods (4Gi memory) |
 | **Migration script** | `widget-migration-script.py` |
 | **Access method** | Breakglass role (required for production) |
 | **Authorized users** | tefaz, khala, bflorkie, mmarosi |
@@ -81,7 +81,7 @@ Same as staging. The migration script handles these translations automatically:
 | `id` (uint, PK) | `id` (uint, PK) | Auto-generated in target (not copied) |
 | `user_identity_id` (uint, FK) | `user_id` (string) | JOIN `user_identities` table to resolve `account_id` |
 | _(does not exist)_ | `dashboard_name` (string) | Copied from `display_name` |
-| `default` (bool) | `default` (bool) | Direct copy |
+| `default` (bool) | `is_default` (bool) | Direct copy (column renamed by GORM migration) |
 | `name` (string, embedded) | `name` (string, embedded) | Translated via NAME_MAP (e.g., `landingPage` → `landing-landingPage`) |
 | `display_name` (string, embedded) | `display_name` (string, embedded) | Direct copy |
 | `sm` (JSON) | `sm` (JSON) | Widget item `"i"` fields transformed via WIDGET_ID_MAP (e.g., `rhel#rhel` → `landing-./RhelWidget`) |
@@ -100,11 +100,19 @@ Same as staging. The migration script handles these translations automatically:
 
 ## 4. Step 1: Obtain Production Breakglass Access (app-interface MR)
 
-Production requires a **breakglass role** — `edit` is prohibited on production namespaces per Self-SRE OpenShift Access Standards. Breakglass uses a scoped Kubernetes RBAC Role (not ClusterRole) with explicit permissions.
+Production requires a **breakglass role** — `edit` is prohibited on production namespaces per Self-SRE OpenShift Access Standards. Breakglass uses a scoped Kubernetes RBAC Role bound via a group-based RoleBinding, following the [breakglass access documentation](https://gitlab.cee.redhat.com/service/app-interface/-/blob/master/docs/platform-users/access/breakglass-access.md).
 
-### 4.1 Create the Breakglass RBAC Role Resource
+The breakglass pattern consists of five components:
 
-File: `resources/services/insights/chrome-service/rbac/widget-migration-breakglass.role.yaml`
+1. **Role Definition** — defines the breakglass role with expiration and cluster group
+2. **RBAC Role** — Kubernetes Role with least-privilege permissions (one per namespace)
+3. **RBAC RoleBinding** — binds the breakglass group to the Role (one per namespace)
+4. **Cluster Group Registration** — registers the group in the cluster's `managedGroups`
+5. **Namespace Resource References** — adds RBAC resources to each namespace's `openshiftResources`
+
+### 4.1 Create the Breakglass RBAC Role Resources
+
+File: `resources/insights-prod/chrome-service-prod/widget-migration-breakglass.role.yaml`
 
 ```yaml
 ---
@@ -113,24 +121,19 @@ kind: Role
 metadata:
   name: widget-migration-breakglass
 rules:
-# Create and manage debug pods
 - apiGroups: [""]
   resources: ["pods"]
-  verbs: ["create", "list", "get", "delete"]
-# Exec into pods for running migration
+  verbs: ["get", "list", "create", "delete"]
 - apiGroups: [""]
   resources: ["pods/exec"]
   verbs: ["create", "get"]
-# Read DB secret (named explicitly)
 - apiGroups: [""]
   resources: ["secrets"]
   resourceNames: ["chrome-service-db"]
   verbs: ["get"]
 ```
 
-Create a similar file for widget-layout-backend:
-
-File: `resources/services/insights/widget-layout-backend/rbac/widget-migration-breakglass.role.yaml`
+File: `resources/insights-prod/widget-layout-backend-prod/widget-migration-breakglass.role.yaml`
 
 ```yaml
 ---
@@ -139,63 +142,140 @@ kind: Role
 metadata:
   name: widget-migration-breakglass
 rules:
-# Create and manage debug pods
 - apiGroups: [""]
   resources: ["pods"]
-  verbs: ["create", "list", "get", "delete"]
-# Exec into pods for running migration
+  verbs: ["get", "list", "create", "delete"]
 - apiGroups: [""]
   resources: ["pods/exec"]
   verbs: ["create", "get"]
-# Read DB secret (named explicitly)
 - apiGroups: [""]
   resources: ["secrets"]
   resourceNames: ["widget-layout-backend-db"]
   verbs: ["get"]
 ```
 
-### 4.2 Create the Breakglass Role File
+### 4.2 Create the RBAC RoleBindings
 
-File: `data/teams/insights/roles/platform-experience-breakglass.yml`
+File: `resources/insights-prod/chrome-service-prod/widget-migration-breakglass.rolebinding.yaml`
 
 ```yaml
 ---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: widget-migration-breakglass
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: widget-migration-breakglass
+subjects:
+- apiGroup: rbac.authorization.k8s.io
+  kind: Group
+  name: widget-migration-breakglass-group
+```
+
+File: `resources/insights-prod/widget-layout-backend-prod/widget-migration-breakglass.rolebinding.yaml`
+
+```yaml
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: widget-migration-breakglass
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: widget-migration-breakglass
+subjects:
+- apiGroup: rbac.authorization.k8s.io
+  kind: Group
+  name: widget-migration-breakglass-group
+```
+
+### 4.3 Create the Breakglass Role Definition
+
+File: `data/teams/insights/roles/widget-migration-breakglass.yml`
+
+```yaml
+---
+# Temporary role for Widget Migration production breakglass access
+#
+# IMPORTANT: This role has an expirationDate.
+# The expiration date serves as a reminder to review whether this breakglass access is still needed.
 
 $schema: /access/role-1.yml
 
 labels: {}
-name: platform-experience-breakglass
-
+name: widget-migration-breakglass
 description: |
-  Breakglass role for production dashboard_templates data migration
-  from chrome-service to widget-layout-backend. Scoped to debug pod
-  creation, exec, and named DB secret access only.
+  Breakglass role for Widget Migration production debugging. Provides minimal access to
+  create debug pods and read secrets.
 
 permissions: []
 
-expirationDate: '2026-06-08'
+# Set an expiration date to minimal required window
+expirationDate: '2026-07-31'
 
 access:
-- namespace:
-    $ref: /services/insights/chrome-service/namespaces/chrome-service-prod.yml
-  role: widget-migration-breakglass
-- namespace:
-    $ref: /services/insights/widget-layout-backend/namespaces/crcp01ue1-widget-layout-backend-prod.yml
-  role: widget-migration-breakglass
+- cluster:
+    $ref: /openshift/crcp01ue1/cluster.yml
+  group: widget-migration-breakglass-group
 
 self_service:
 - change_type:
     $ref: /app-interface/changetype/breakglass-role-manager.yml
   datafiles:
-  - $ref: /teams/insights/roles/platform-experience-breakglass.yml
+  - $ref: /teams/insights/roles/widget-migration-breakglass.yml
 ```
 
-### 4.3 Add Role to User Files
+### 4.4 Register the Group in Cluster Configuration
+
+Edit `data/openshift/crcp01ue1/cluster.yml` and add `widget-migration-breakglass-group` to the `managedGroups` list:
+
+```yaml
+managedGroups:
+- dedicated-admins
+- dedicated-readers
+# ... existing groups ...
+- widget-migration-breakglass-group
+```
+
+### 4.5 Reference Resources in Namespace Definitions
+
+Edit `data/services/insights/chrome-service/namespaces/chrome-service-prod.yml` — add to `openshiftResources`:
+
+```yaml
+- provider: resource
+  path: /insights-prod/chrome-service-prod/widget-migration-breakglass.role.yaml
+- provider: resource
+  path: /insights-prod/chrome-service-prod/widget-migration-breakglass.rolebinding.yaml
+```
+
+Edit `data/services/insights/widget-layout-backend/namespaces/crcp01ue1-widget-layout-backend-prod.yml` — add to `openshiftResources`:
+
+```yaml
+- provider: resource
+  path: /insights-prod/widget-layout-backend-prod/widget-migration-breakglass.role.yaml
+- provider: resource
+  path: /insights-prod/widget-layout-backend-prod/widget-migration-breakglass.rolebinding.yaml
+```
+
+**IMPORTANT: `managedResourceTypes` is required.** If the namespace file does not already include a `managedResourceTypes` field, the `openshift-resources` integration will skip Role and RoleBinding types entirely — the resources will appear in `openshiftResources` but never get deployed to the cluster. Add the following to both namespace files:
+
+```yaml
+managedResourceTypes:
+- Role.rbac.authorization.k8s.io
+- RoleBinding.rbac.authorization.k8s.io
+```
+
+See [troubleshooting docs](https://gitlab.cee.redhat.com/service/app-interface/-/blob/master/docs/platform-users/FAQ/troubleshooting.md#my-configuration-is-merged-into-app-interface-but-it-isnt-applied) for details.
+
+### 4.6 Add Role to User Files
 
 Add the following line to the `roles:` section of each user file in `data/teams/insights/users/`:
 
 ```yaml
-- $ref: /teams/insights/roles/platform-experience-breakglass.yml
+- $ref: /teams/insights/roles/widget-migration-breakglass.yml
 ```
 
 Users to update:
@@ -204,19 +284,21 @@ Users to update:
 - `bflorkie.yml`
 - `mmarosi.yml`
 
-### 4.4 Add Resource Paths to Self-Service
+### 4.7 Add Resource Paths to Self-Service
 
-Ensure the breakglass RBAC resource files are listed in the team's `resource-owner` self-service section so changes to these resources can be self-approved. Check the `platform-experience` or `platform-experience-services` role file and add:
+Add the RBAC resource files to the `resource-owner` self-service section in `data/teams/insights/roles/platform-experience-services.yml`:
 
 ```yaml
 - change_type:
     $ref: /app-interface/changetype/resource-owner.yml
   resources:
-  - /services/insights/chrome-service/rbac/widget-migration-breakglass.role.yaml
-  - /services/insights/widget-layout-backend/rbac/widget-migration-breakglass.role.yaml
+  - /insights-prod/chrome-service-prod/widget-migration-breakglass.role.yaml
+  - /insights-prod/chrome-service-prod/widget-migration-breakglass.rolebinding.yaml
+  - /insights-prod/widget-layout-backend-prod/widget-migration-breakglass.role.yaml
+  - /insights-prod/widget-layout-backend-prod/widget-migration-breakglass.rolebinding.yaml
 ```
 
-### 4.5 Commit, Push, and Create MR
+### 4.8 Commit, Push, and Create MR
 
 ```bash
 cd /path/to/app-interface
@@ -295,21 +377,73 @@ If any return `no`, the RBAC hasn't reconciled yet. Wait a few more minutes and 
 
 ## 8. Step 5: Launch Debug-Container in Chrome-Service Namespace (Source)
 
+> **Note:** The standard debug-container template creates a Deployment, but the breakglass RBAC Role only grants pod-level permissions (not `deployments.apps`). Use a bare Pod manifest instead. The pod needs at least **4Gi memory** — the default 1Gi is insufficient for large datasets (374K+ rows with JSONB columns cause OOM kills during export).
+
 ```bash
-oc process --local \
-    -f https://raw.githubusercontent.com/app-sre/container-images/master/debug-container/openshift.yml \
-    -p POSTGRES_DB_SECRET_NAME="chrome-service-db" \
-| oc -n chrome-service-prod apply -f -
+oc -n chrome-service-prod apply -f - <<'EOF'
+apiVersion: v1
+kind: Pod
+metadata:
+  name: debug-container
+  labels:
+    app: debug-container
+spec:
+  containers:
+  - name: debug-container
+    image: quay.io/redhat-services-prod/app-sre-tenant/container-images-master/debug-container-master:latest
+    command: ["sleep"]
+    args: ["infinity"]
+    resources:
+      requests:
+        cpu: 100m
+        memory: 1Gi
+      limits:
+        cpu: 1000m
+        memory: 4Gi
+    env:
+    - name: PGHOST
+      valueFrom:
+        secretKeyRef:
+          name: chrome-service-db
+          key: db.host
+          optional: true
+    - name: PGPORT
+      valueFrom:
+        secretKeyRef:
+          name: chrome-service-db
+          key: db.port
+          optional: true
+    - name: PGDATABASE
+      valueFrom:
+        secretKeyRef:
+          name: chrome-service-db
+          key: db.name
+          optional: true
+    - name: PGUSER
+      valueFrom:
+        secretKeyRef:
+          name: chrome-service-db
+          key: db.user
+          optional: true
+    - name: PGPASSWORD
+      valueFrom:
+        secretKeyRef:
+          name: chrome-service-db
+          key: db.password
+          optional: true
+    - name: PGSSLMODE
+      value: "require"
+    - name: PGCONNECT_TIMEOUT
+      value: "30"
+  restartPolicy: Never
+EOF
 ```
 
-Wait for the deployment to roll out and get the pod name:
+Wait for the pod to be ready:
 
 ```bash
-oc -n chrome-service-prod rollout status deployment/debug-container --timeout=120s
-
-# Get the actual pod name (it has a hash suffix)
-SOURCE_POD=$(oc -n chrome-service-prod get pods -l app=debug-container -o jsonpath='{.items[0].metadata.name}')
-echo "Source pod: $SOURCE_POD"
+oc -n chrome-service-prod wait --for=condition=Ready pod/debug-container --timeout=120s
+SOURCE_POD="debug-container"
 ```
 
 ---
@@ -430,21 +564,73 @@ cat ./widget_migration_prod.meta
 
 ## 11. Step 8: Launch Debug-Container in Widget-Layout Namespace (Target)
 
+> **Note:** Same as Step 5 — use a bare Pod manifest with 4Gi memory instead of the Deployment-based debug-container template.
+
 ```bash
-oc process --local \
-    -f https://raw.githubusercontent.com/app-sre/container-images/master/debug-container/openshift.yml \
-    -p POSTGRES_DB_SECRET_NAME="widget-layout-backend-db" \
-| oc -n widget-layout-backend-prod apply -f -
+oc -n widget-layout-backend-prod apply -f - <<'EOF'
+apiVersion: v1
+kind: Pod
+metadata:
+  name: debug-container
+  labels:
+    app: debug-container
+spec:
+  containers:
+  - name: debug-container
+    image: quay.io/redhat-services-prod/app-sre-tenant/container-images-master/debug-container-master:latest
+    command: ["sleep"]
+    args: ["infinity"]
+    resources:
+      requests:
+        cpu: 100m
+        memory: 1Gi
+      limits:
+        cpu: 1000m
+        memory: 4Gi
+    env:
+    - name: PGHOST
+      valueFrom:
+        secretKeyRef:
+          name: widget-layout-backend-db
+          key: db.host
+          optional: true
+    - name: PGPORT
+      valueFrom:
+        secretKeyRef:
+          name: widget-layout-backend-db
+          key: db.port
+          optional: true
+    - name: PGDATABASE
+      valueFrom:
+        secretKeyRef:
+          name: widget-layout-backend-db
+          key: db.name
+          optional: true
+    - name: PGUSER
+      valueFrom:
+        secretKeyRef:
+          name: widget-layout-backend-db
+          key: db.user
+          optional: true
+    - name: PGPASSWORD
+      valueFrom:
+        secretKeyRef:
+          name: widget-layout-backend-db
+          key: db.password
+          optional: true
+    - name: PGSSLMODE
+      value: "require"
+    - name: PGCONNECT_TIMEOUT
+      value: "30"
+  restartPolicy: Never
+EOF
 ```
 
-Wait for the deployment to roll out and get the pod name:
+Wait for the pod to be ready:
 
 ```bash
-oc -n widget-layout-backend-prod rollout status deployment/debug-container --timeout=120s
-
-# Get the actual pod name
-TARGET_POD=$(oc -n widget-layout-backend-prod get pods -l app=debug-container -o jsonpath='{.items[0].metadata.name}')
-echo "Target pod: $TARGET_POD"
+oc -n widget-layout-backend-prod wait --for=condition=Ready pod/debug-container --timeout=120s
+TARGET_POD="debug-container"
 ```
 
 ---
@@ -569,7 +755,7 @@ The debug-container sets `PGHOST`, `PGUSER`, `PGPASSWORD`, `PGDATABASE` automati
 psql -c "SELECT COUNT(*) FROM dashboard_templates"
 
 # Sample rows — verify user_id and dashboard_name are populated
-psql -c "SELECT id, user_id, dashboard_name, name, display_name, \"default\" FROM dashboard_templates LIMIT 10"
+psql -c "SELECT id, user_id, dashboard_name, name, display_name, is_default FROM dashboard_templates LIMIT 10"
 
 # Check no NULL/empty user_ids (should return 0)
 psql -c "SELECT COUNT(*) FROM dashboard_templates WHERE user_id IS NULL OR user_id = ''"
@@ -617,18 +803,18 @@ curl -H "Authorization: Bearer $TOKEN" "$GABI/query" \
 
 ### 16.1 Delete Debug-Containers (MANDATORY)
 
-Production debug-containers must be removed immediately after use. Delete the Deployment (not just the pod — the Deployment would recreate it):
+Production debug-containers must be removed immediately after use:
 
 ```bash
-oc -n chrome-service-prod delete deployment debug-container
-oc -n widget-layout-backend-prod delete deployment debug-container
+oc -n chrome-service-prod delete pod debug-container
+oc -n widget-layout-backend-prod delete pod debug-container
 ```
 
 Verify they are gone:
 
 ```bash
-oc -n chrome-service-prod get deployment debug-container 2>&1 | grep "not found"
-oc -n widget-layout-backend-prod get deployment debug-container 2>&1 | grep "not found"
+oc -n chrome-service-prod get pod debug-container 2>&1 | grep "not found"
+oc -n widget-layout-backend-prod get pod debug-container 2>&1 | grep "not found"
 ```
 
 ### 16.2 Clean Up Local Files
@@ -641,12 +827,17 @@ rm ./widget_migration_prod.sql ./widget_migration_prod.meta
 
 Submit an MR to remove the breakglass access:
 
-1. Remove `- $ref: /teams/insights/roles/platform-experience-breakglass.yml` from all 4 user files
-2. Delete `data/teams/insights/roles/platform-experience-breakglass.yml`
-3. Delete `resources/services/insights/chrome-service/rbac/widget-migration-breakglass.role.yaml`
-4. Delete `resources/services/insights/widget-layout-backend/rbac/widget-migration-breakglass.role.yaml`
+1. Remove `- $ref: /teams/insights/roles/widget-migration-breakglass.yml` from all 4 user files
+2. Delete `data/teams/insights/roles/widget-migration-breakglass.yml`
+3. Delete `resources/insights-prod/chrome-service-prod/widget-migration-breakglass.role.yaml`
+4. Delete `resources/insights-prod/chrome-service-prod/widget-migration-breakglass.rolebinding.yaml`
+5. Delete `resources/insights-prod/widget-layout-backend-prod/widget-migration-breakglass.role.yaml`
+6. Delete `resources/insights-prod/widget-layout-backend-prod/widget-migration-breakglass.rolebinding.yaml`
+7. Remove `widget-migration-breakglass-group` from `managedGroups` in `data/openshift/crcp01ue1/cluster.yml`
+8. Remove the `provider: resource` entries for the breakglass role/rolebinding from both namespace files
+9. Remove the breakglass resource paths from `resource-owner` in `platform-experience-services.yml`
 
-Or let it expire on `2026-06-08`. However, removing promptly is preferred for production breakglass.
+Or let it expire on `2026-07-31`. However, removing promptly is preferred for production breakglass.
 
 ---
 
@@ -690,9 +881,12 @@ If a full rollback is needed and manual deletion is insufficient, restore the wi
 |----------|----------|
 | Migration script | `widget-migration-script.py` (local) |
 | Breakglass MR branch | `widget-migration-prod-breakglass` (to be created) |
-| Breakglass role file | `data/teams/insights/roles/platform-experience-breakglass.yml` |
-| Chrome-service breakglass RBAC | `resources/services/insights/chrome-service/rbac/widget-migration-breakglass.role.yaml` |
-| Widget-layout breakglass RBAC | `resources/services/insights/widget-layout-backend/rbac/widget-migration-breakglass.role.yaml` |
+| Breakglass role file | `data/teams/insights/roles/widget-migration-breakglass.yml` |
+| Chrome-service breakglass RBAC Role | `resources/insights-prod/chrome-service-prod/widget-migration-breakglass.role.yaml` |
+| Chrome-service breakglass RoleBinding | `resources/insights-prod/chrome-service-prod/widget-migration-breakglass.rolebinding.yaml` |
+| Widget-layout breakglass RBAC Role | `resources/insights-prod/widget-layout-backend-prod/widget-migration-breakglass.role.yaml` |
+| Widget-layout breakglass RoleBinding | `resources/insights-prod/widget-layout-backend-prod/widget-migration-breakglass.rolebinding.yaml` |
+| Cluster config (managedGroups) | `data/openshift/crcp01ue1/cluster.yml` |
 | Debug-container docs | `docs/app-sre/sops/general/debug-container.md` |
 | Self-SRE access docs | `docs/platform-users/access/self-sre-openshift-access.md` |
 | DB connection docs | `docs/platform-users/external-resources/aws/rds/connect-to-postgres-mysql-database.md` |
