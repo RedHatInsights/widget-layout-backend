@@ -206,7 +206,8 @@ func TestGetWidgets(t *testing.T) {
 		assert.Equal(t, http.StatusOK, w.Code)
 
 		var filteredResp api.DashboardTemplateListResponse
-		_ = json.Unmarshal(w.Body.Bytes(), &filteredResp)
+		err := json.Unmarshal(w.Body.Bytes(), &filteredResp)
+		assert.NoError(t, err)
 		assert.Len(t, filteredResp.Data, 2, "Should return 2 templates with dashboard-a")
 		assert.Equal(t, 2, filteredResp.Meta.Count, "Meta count should be 2")
 	})
@@ -237,7 +238,8 @@ func TestGetWidgets(t *testing.T) {
 		assert.Equal(t, http.StatusOK, w.Code)
 
 		var allResp api.DashboardTemplateListResponse
-		_ = json.Unmarshal(w.Body.Bytes(), &allResp)
+		err := json.Unmarshal(w.Body.Bytes(), &allResp)
+		assert.NoError(t, err)
 		assert.Len(t, allResp.Data, 2, "Should return all 2 templates when no filter")
 		assert.Equal(t, 2, allResp.Meta.Count, "Meta count should be 2")
 	})
@@ -275,7 +277,8 @@ func TestGetWidgets(t *testing.T) {
 		assert.Equal(t, http.StatusNotFound, w.Code, "Should return 404 when auto-creating template")
 
 		var autoResp api.DashboardTemplateListResponse
-		_ = json.Unmarshal(w.Body.Bytes(), &autoResp)
+		err := json.Unmarshal(w.Body.Bytes(), &autoResp)
+		assert.NoError(t, err)
 		assert.Len(t, autoResp.Data, 1, "Should return 1 auto-created template")
 		assert.Equal(t, 1, autoResp.Meta.Count, "Meta count should be 1")
 		assert.Equal(t, "server-auto-test", autoResp.Data[0].TemplateBase.Name)
