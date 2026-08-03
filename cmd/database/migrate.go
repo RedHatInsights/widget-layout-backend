@@ -1,6 +1,8 @@
 package main
 
 import (
+	"os"
+
 	"github.com/RedHatInsights/widget-layout-backend/pkg/database"
 	"github.com/RedHatInsights/widget-layout-backend/pkg/models"
 	"github.com/joho/godotenv"
@@ -10,8 +12,8 @@ import (
 )
 
 func main() {
-	if err := godotenv.Load(); err != nil {
-		logrus.WithError(err).Debug("No .env file loaded")
+	if err := godotenv.Load(); err != nil && !os.IsNotExist(err) {
+		logrus.WithError(err).Fatal("Failed to load .env file")
 	}
 	database.InitDb()
 	// migrate models

@@ -2,6 +2,7 @@ package database
 
 import (
 	"log"
+	"os"
 
 	"github.com/RedHatInsights/widget-layout-backend/pkg/config"
 	"github.com/joho/godotenv"
@@ -14,8 +15,8 @@ var DB *gorm.DB
 
 func InitDb() {
 	var dialector gorm.Dialector
-	if err := godotenv.Load(); err != nil {
-		log.Printf("No .env file loaded: %v", err)
+	if err := godotenv.Load(); err != nil && !os.IsNotExist(err) {
+		log.Fatalf("Failed to load .env file: %v", err)
 	}
 	cfg := config.GetConfig()
 	if cfg.TestMode {

@@ -55,8 +55,8 @@ func loadSpec() (*openapi3.T, error) {
 }
 
 func init() {
-	if err := godotenv.Load(); err != nil {
-		logrus.WithError(err).Debug("No .env file loaded")
+	if err := godotenv.Load(); err != nil && !os.IsNotExist(err) {
+		logrus.WithError(err).Fatal("Failed to load .env file")
 	}
 	database.InitDb()
 	fmt.Println("Loading environment variables from .env file")
