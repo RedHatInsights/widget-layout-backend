@@ -10,7 +10,9 @@ import (
 )
 
 func main() {
-	_ = godotenv.Load()
+	if err := godotenv.Load(); err != nil {
+		logrus.WithError(err).Debug("No .env file loaded")
+	}
 	database.InitDb()
 	// migrate models
 	tx := database.DB.Begin().Session(&gorm.Session{

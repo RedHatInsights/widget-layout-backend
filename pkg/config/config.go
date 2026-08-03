@@ -64,7 +64,9 @@ const (
 )
 
 func init() {
-	_ = godotenv.Load()
+	if err := godotenv.Load(); err != nil {
+		logrus.WithError(err).Debug("No .env file loaded")
+	}
 	config = &WidgetLayoutConfig{}
 	level, ok := os.LookupEnv("LOG_LEVEL")
 	if !ok {
