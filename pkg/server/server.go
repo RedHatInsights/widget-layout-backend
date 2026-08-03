@@ -132,7 +132,9 @@ func (Server) DeleteWidgetLayoutById(w http.ResponseWriter, r *http.Request, das
 		return
 	}
 	w.WriteHeader(status)
-	_, _ = w.Write(nil)
+	if _, err := w.Write(nil); err != nil {
+		logrus.Errorf("Failed to write response: %v", err)
+	}
 }
 
 func (Server) RenameWidgetLayoutById(w http.ResponseWriter, r *http.Request, dashboardTemplateId int64) {
