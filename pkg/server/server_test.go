@@ -3,6 +3,7 @@ package server_test
 import (
 	"context"
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"testing"
@@ -30,10 +31,11 @@ func TestMain(m *testing.M) {
 	cfg.DatabaseConfig.DBName = dbName
 
 	database.InitDb()
-	// Load the models into the tmp database
-	database.DB.AutoMigrate(
+	if err := database.DB.AutoMigrate(
 		&models.DashboardTemplate{},
-	)
+	); err != nil {
+		log.Fatalf("Failed to migrate test database: %v", err)
+	}
 
 	// Reset the unique ID generator for clean tests - this should be done before every test run
 	test_util.ResetIDGenerator()
