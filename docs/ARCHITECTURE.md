@@ -1,25 +1,25 @@
-# Architecture
+# Widget-layout-backend architecture
 
-## System Overview
+## Widget-layout-backend service overview
 
-Widget Layout Backend is a RESTful Go service that manages personalized dashboard layouts for the Hybrid Cloud Console (HCC). It enables users to create, customize, copy, reset, export, and import widget dashboard templates. The frontend (widget-layout) renders these templates as responsive grids using react-grid-layout.
+A console.redhat.com microservice that manages personalized widget dashboard layouts for the Hybrid Cloud Console. Acts as persistent storage for user-customized dashboard templates and serves widget metadata.
 
 ```
                         ┌─────────────────────┐
-                        │   Chrome Shell (FE)  │
-                        │  widget-layout (FE)  │
+                        │   Chrome Shell (FE) │
+                        │  widget-layout (FE) │
                         └──────────┬──────────┘
                                    │ x-rh-identity
                         ┌──────────▼──────────┐
-                        │  3scale / Gateway    │
+                        │  3scale / Gateway   │
                         └──────────┬──────────┘
                                    │
-                        ┌──────────▼──────────┐
+                        ┌──────────▼───────────┐
                         │ widget-layout-backend│
                         │   (this service)     │
-                        └──┬──────────┬───────┘
+                        └──┬──────────┬────────┘
                            │          │
-               ┌───────────▼──┐  ┌───▼───────────┐
+               ┌───────────▼──┐  ┌───▼────────────┐
                │  PostgreSQL  │  │  ConfigMaps    │
                │  (GORM)      │  │  (base layouts │
                │              │  │   + widget     │
@@ -27,36 +27,72 @@ Widget Layout Backend is a RESTful Go service that manages personalized dashboar
                └──────────────┘  └────────────────┘
 ```
 
-## Two-Source Data Architecture
+Dashboard templates describe what widgets exist on a user's dashboard, their position, dimensions, and additional properties that help the frontend (widget-layout) render the widgets using react-grid-layout. Each template supports 4 responsive breakpoints (sm, md, lg, xl) to handle different screen sizes. There can be multiple template types (dashboard types), independent of each other.
 
-### Database (PostgreSQL via GORM)
+Once a user modifies a base template, the template is "forked" and stored in the database. Any future changes are reflected in the forked template. Users can also copy, rename, reset, export, and import templates.
 
-Stores user-specific dashboard templates:
-- `DashboardTemplate` - user's customized layouts with responsive breakpoints (sm/md/lg/xl)
-- Each template is scoped to a user ID extracted from the `x-rh-identity` header
-- Templates reference a base template by name but store their own layout config
+## Resource usage
 
-### ConfigMaps (In-Memory Registries)
+| Resource | Request | Limit |
+|----------|---------|-------|
+| CPU | 250m | 500m |
+| Memory | 256Mi | 512Mi |
 
-Loaded at startup from environment variables, never persisted to DB:
-- **`BASE_LAYOUTS`** → `BaseTemplateRegistry` - predefined starting layouts
-- **`WIDGET_MAPPING`** → `WidgetMappingRegistry` - widget metadata (scope, module, federation config, permissions, defaults)
+Replicas: minimum 3
 
-These registries are populated by `init()` functions in `pkg/service/BaseLayoutTemplate.go` and `pkg/service/WidgetMapping.go`. Invalid JSON causes fatal shutdown.
+Ephemeral environments use reduced resources (50m/128Mi request, 100m/256Mi limit).
 
-## Request Flow
+As this is a small service, we do not expect these limits to be breached. The database storage is currently 100GB gp3 and should remain modest as each user only stores a handful of dashboard template records containing JSON layout configurations.
 
-1. **Incoming request** hits chi router
-2. **chi middleware** logs the request (logrus)
-3. **Identity middleware** (`middlewares.InjectUserIdentity`) decodes `x-rh-identity` header, stores in context
-4. **OpenAPI validator middleware** validates request against `spec/openapi.yaml`
-5. **Handler** (`pkg/server/`) extracts identity, calls service layer
-6. **Service** (`pkg/service/`) executes business logic, interacts with GORM DB and/or registries
-7. **Response** encoded as JSON with consistent error format
+## Data interaction
 
-Exception: `GET /widget-mapping` skips identity middleware - it's a public endpoint.
+### CRC user
 
-## Code Generation Pipeline
+Users will be able to read their dashboard templates, create new ones (via forking base templates), update layout configurations, copy, rename, reset to defaults, set a default template, export, and import templates. They will only be able to access templates they own. Ownership is determined by the User.UserID attribute from the `x-rh-identity` header.
+
+### Widget content provider (service teams)
+
+Service teams define their widgets via Frontend Custom Resources (CRs) in the Frontend Operator. The FEO collects widget metadata during reconciliation and writes it into a ConfigMap. This metadata includes module federation configuration (scope, module, importName), feature flags, display config (title, icon, header links), permissions, and default dimensions. Service teams do not interact with the widget-layout-backend directly — they define their widgets in their Frontend CRs and the FEO handles the rest.
+
+## Data storage
+
+User dashboard template data is stored in PostgreSQL 17 RDS (`db.m6g.xlarge`, 100GB gp3 storage, single-AZ). It uses GORM's JSON data types (`datatypes.JSONType`) to store the layout configuration as JSON blobs within a relational table. SSL is enforced (`rds.force_ssl: 1`), storage is encrypted, and performance insights are enabled. Backups are retained for 7 days.
+
+The service also consumes two ConfigMaps generated by the Frontend Operator (FEO), loaded into in-memory registries at startup:
+- **`BASE_LAYOUTS`** (ConfigMap: `base-widget-dashboard-templates-cfg`) → `BaseTemplateRegistry` — predefined starting layouts
+- **`WIDGET_MAPPING`** (ConfigMap: `widget-registry-cfg`) → `WidgetMappingRegistry` — widget metadata including module federation config, permissions, and default dimensions
+
+These registries are read-only after startup. Invalid JSON in either ConfigMap causes fatal shutdown to prevent serving stale or broken data.
+
+### Data loss
+
+Data loss for the widget-layout-backend has a minor impact. It does not affect any critical systems of CRC. The loss would result in users losing their customized dashboard layouts and reverting to the default base templates. No business-critical data flows through this service. Base templates and widget mappings are not affected by database loss as they are sourced from ConfigMaps. RDS backups (7-day retention) and blue/green deployment support allow point-in-time recovery.
+
+## Dev stack
+
+- Golang v1.24+ app
+- Chi v5 HTTP router
+- oapi-codegen v2 (OpenAPI spec → Go code generation)
+- GORM ORM
+- PostgreSQL 17 DB (RDS)
+- Prometheus client for metrics
+- Clowder for OpenShift resource management
+- Konflux for CI/CD
+- CloudWatch for AWS-level monitoring
+
+## Features
+
+### Spec-first API development
+
+The OpenAPI spec (`spec/openapi.yaml`) is the single source of truth for the API. All API changes start in the spec, then Go code is generated using oapi-codegen. This ensures the spec and implementation stay in sync at all times. A validation middleware automatically validates incoming request payloads against the spec definition, providing an additional layer of safety when dealing with JSON blobs.
+
+The code generation produces handler interface signatures, request/response models, and chi server wiring. The generated `ServerInterface` is implemented by `pkg/server/Server`.
+
+```go
+//go:generate go run github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen -config server.cfg.yaml spec/openapi.yaml
+```
+
+### Code Generation Pipeline
 
 ```
 spec/openapi.yaml
@@ -73,49 +109,180 @@ api/generated.go  (gitignored)
 
 The generated `ServerInterface` is implemented by `pkg/server/Server` struct. Custom types (UnmarshalJSON for cx/cy conversion, validation, WidgetMapping) live in `api/common.go` and `api/BaseWidgetDashboardTemplate.go`.
 
-## Key Design Decisions
+### Dashboard templates
 
-### Spec-First Development
+Each dashboard template contains:
+- Layout configurations for 4 responsive breakpoints (sm, md, lg, xl)
+- A base template reference (name + display name)
+- User ownership (userId from `x-rh-identity`)
+- A default flag (`is_default` column)
+- A custom dashboard name
 
-The OpenAPI spec is the source of truth. All API changes start in `spec/openapi.yaml`, then code is generated. This ensures the spec and implementation stay in sync.
+Grid width constraints are enforced per breakpoint:
+- **sm**: max width 1, x position < 1
+- **md**: max width 2, x position < 2
+- **lg**: max width 3, x position < 3
+- **xl**: max width 4, x position < 4
 
-### Model Type Aliasing
+### Auto-creation on GET
 
-`pkg/models/DashboardTemplate.go` defines `DashboardTemplate = api.DashboardTemplate` — a type alias. This means the GORM model IS the API type. Changes to the OpenAPI schema directly affect the database model.
+When a user requests templates filtered by `dashboardType` and none exist, the service automatically forks the matching base template for that user. This returns a 404 status code but includes the newly created template in the response body. This ensures every user gets a personalized template on first access without requiring explicit setup.
 
-### cx/cy Coordinate System
+### Model type aliasing
 
-YAML parsers treat bare `y` as boolean `true`, breaking widget coordinate parsing. The solution:
+The GORM database model is a type alias of the API model:
+
+```go
+type DashboardTemplate = api.DashboardTemplate
+```
+
+This means changes to the OpenAPI schema directly affect the database model. There is no separate mapping layer between API and database representations.
+
+### cx/cy coordinate system
+
+YAML parsers treat bare `y` as boolean `true`, which breaks widget coordinate parsing in ConfigMap JSON. The solution:
 - ConfigMap JSON uses `cx`/`cy` for coordinates
 - REST API uses `x`/`y`
-- `api/common.go` `UnmarshalJSON` converts between them at deserialization time
+- A custom `UnmarshalJSON` in `api/common.go` converts between them at deserialization time
 
-### Auto-Creation on GET
+### Widget IDs
 
-When a user requests templates filtered by `dashboardType` and none exist, the service automatically forks the matching base template for the user. This returns a 404 status but includes the newly created template in the response body.
+Each widget has a unique ID composed from its module federation metadata: scope, module, and importName. For example, `"landing-./ExploreCapabilities"`. This ensures no conflicting IDs across services in Frontend CRs, as no two frontend modules will ever have the same combination of module federation data.
 
-## Deployment
+### FEO integration
 
-Deployed as a ClowdApp on OpenShift via `deploy/clowdapp.yaml`:
-- Single deployment with one pod
-- PostgreSQL database provisioned by Clowder
-- ConfigMaps for base layouts and widget mappings (generated by the frontend-operator)
-- Prometheus metrics on separate port (default 9000)
-- Health check at `GET /healthz`
+The widget registry is not hardcoded. The Frontend Operator collects widget metadata from Frontend CRs during reconciliation and writes it into a ConfigMap (`widget-registry-cfg`). This is consumed by the widget-layout-backend at startup.
 
-### Port Configuration
+The integration works as follows:
+1. Service teams add `ModuleFederationMetadata` definitions to their Frontend CRs
+2. During FEO reconciliation, widget data is combined and written into a dedicated ConfigMap
+3. A separate ConfigMap is used (not the existing chrome-service one) to avoid the 1MB ConfigMap size limit
+4. Items in the ConfigMap are in deterministic order to prevent infinite reconciliation loops
+5. The widget-layout-backend reads `WIDGET_MAPPING` env var (populated from the ConfigMap) at startup
 
-| Port | Purpose | Source |
-|------|---------|--------|
-| WebPort | API traffic | Clowder `publicPort` / env default 8000 |
-| MetricsPort | Prometheus `/metrics` | Clowder `metricsPort` / env default 9000 |
+Base templates follow the same pattern via the `base-widget-dashboard-templates-cfg` ConfigMap.
 
-### Database Connection Pool
+## API endpoints
 
-Configurable via environment variables with sensible defaults:
+All endpoints are under `/api/widget-layout/v1`. All require `x-rh-identity` header except `/widget-mapping`.
 
-| Variable | Default | Purpose |
-|----------|---------|---------|
-| `DB_MAX_IDLE_CONNS` | 10 | Maximum idle connections |
-| `DB_MAX_OPEN_CONNS` | 150 | Maximum open connections |
-| `DB_CONN_MAX_LIFETIME_MINUTES` | 5 | Connection max lifetime |
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/` | GET | Returns list of all dashboard templates for a user |
+| `/{templateId}` | GET | Returns a specific template |
+| `/{templateId}` | PATCH | Updates an existing template |
+| `/{templateId}` | DELETE | Deletes a specific template (permanent, unscoped) |
+| `/{templateId}/rename` | PATCH | Renames a dashboard template |
+| `/{templateId}/copy` | POST | Copies a dashboard template |
+| `/{templateId}/default` | POST | Changes the default template |
+| `/{templateId}/reset` | POST | Resets a dashboard template to base |
+| `/{templateId}/export` | GET | Encodes a dashboard template for sharing |
+| `/import` | POST | Imports a dashboard template |
+| `/base-templates` | GET | Gets base dashboard templates |
+| `/base-templates/{baseTemplateName}` | GET | Gets a specific base template |
+| `/base-templates/{baseTemplateName}/fork` | GET | Forks a base template for the user |
+| `/widget-mapping` | GET | Gets widget mappings (no auth required) |
+
+### Authorization
+
+All endpoints except `/widget-mapping` require the `x-rh-identity` header. The `github.com/redhatinsights/platform-go-middlewares/v2/identity` package is used to handle the header.
+
+Users can only view and change templates they have created. Matching is done based on the `Identity.User.UserID` attribute from the header. Unauthorized access returns 403.
+
+### Error handling
+
+Base errors are handled by the generated code from oapi-codegen (request validation). Additional unexpected errors use a common format:
+
+```json
+{
+  "errors": [
+    {
+      "code": 404,
+      "message": "Dashboard template not found"
+    }
+  ]
+}
+```
+
+## Data storage details
+
+This service uses PostgreSQL 17 RDS with GORM's JSON data types to store layout configuration blobs.
+
+Only one main table is required (`dashboard_templates`):
+
+| Field | Type | Description |
+|-------|------|-------------|
+| ID | `uint` | Primary key identifier |
+| CreatedAt | `time.Time` | Time of record creation |
+| UpdatedAt | `time.Time` | Time of last update |
+| DeletedAt | `gorm.DeletedAt` | Soft delete timestamp (indexed) |
+| UserIdentityID | `uint` | User identity ID (indexed) |
+| Default | `bool` | Whether this is the default template (column: `is_default`) |
+| DashboardName | `string` | Custom name for the dashboard |
+| TemplateBase | `DashboardTemplateBase` | Base template reference (name + displayName, embedded) |
+| TemplateConfig | `TemplateConfig` | Layout config for all breakpoints (JSON, embedded) |
+
+The `default` column was renamed to `is_default` to avoid conflicts with the SQL reserved keyword, which caused silent 0-row updates in PostgreSQL.
+
+## Migration
+
+User data was migrated from the Chrome service database to the widget-layout-backend database. Migration scripts are documented in `docs/chrome-data-migration/`.
+
+## Build/Deployment
+
+- Clowder for OpenShift resources (ClowdApp manifest at `deploy/clowdapp.yaml`)
+- Konflux for CI/CD (Tekton pipelines in `.tekton/`)
+- App-interface to deploy the service (saas-file-2 schema)
+- Container image: `quay.io/redhat-services-prod/hcc-platex-services-tenant/widget-layout-backend/widget-layout-backend`
+
+The Dockerfile uses a multi-stage build:
+1. **Builder stage** (UBI9 Go toolset): generates API code, compiles main binary and migration binary
+2. **Runtime stage** (UBI9-minimal): runs as non-root user 1001, exposes port 8000
+
+An init container runs database migrations before the main application starts.
+
+### Deployment topology
+
+The service is deployed to multiple clusters across environments:
+
+| Environment | Clusters |
+|-------------|----------|
+| Stage | `crcs02ue1`, `hccs01ue1` |
+| Production | `crcp01ue1`, `hccp01ue1` |
+
+Stage uses `Debug` log level; production uses `info`.
+
+Network policies allow traffic from the 3scale gateway (API routing) and observability namespaces (monitoring).
+
+### Health checks
+
+- Liveness probe: `GET /healthz` (initial delay 30s, period 5s)
+- Readiness probe: `GET /healthz` (same configuration)
+
+Metrics are served on a separate port (default 9000) at `/metrics` for Prometheus scraping.
+
+## SLOs
+
+| SLO | Target | Window | Metric |
+|-----|--------|--------|--------|
+| Availability | 90% non-5xx responses | 28 days | `api_3scale_gateway_api_status{exported_service="widget-layout"}` |
+| Latency | 90% requests < 2000ms | 28 days | `api_3scale_gateway_api_time_bucket{exported_service="widget-layout"}` |
+
+### Prometheus alerts
+
+| Alert | Condition | Severity |
+|-------|-----------|----------|
+| Absent | Metrics missing for 5m | medium |
+| High error rate | Non-5xx rate drops below 90% over 24h | medium |
+| High latency | Requests under 2000ms drops below 90% over 24h | medium |
+
+Grafana dashboards:
+- Stage: `https://grafana.stage.devshift.net/d/widget-layout-backend-general/widget-layout-backend`
+- Production: `https://grafana.app-sre.devshift.net/d/widget-layout-backend-general/widget-layout-backend`
+
+## Service ownership
+
+- **Service owner**: HCC Framework
+- **Escalation policy**: CRC Experience escalations
+- **Slack channel**: `#team-consoledot-experience-services`
+- **GABI access**: Configured for stage and production database queries
