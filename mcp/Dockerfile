@@ -1,5 +1,5 @@
 # Build stage
-FROM registry.access.redhat.com/ubi9/nodejs-20:latest AS builder
+FROM registry.access.redhat.com/ubi9/nodejs-22:latest AS builder
 
 USER root
 
@@ -19,7 +19,7 @@ RUN npm ci && \
     npm cache clean --force
 
 # Production stage
-FROM registry.access.redhat.com/ubi9/nodejs-20-minimal:latest
+FROM registry.access.redhat.com/ubi9/nodejs-22-minimal:latest
 
 USER root
 
