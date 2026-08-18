@@ -1,6 +1,9 @@
 package database
 
 import (
+	"log"
+	"os"
+
 	"github.com/RedHatInsights/widget-layout-backend/pkg/config"
 	"github.com/joho/godotenv"
 	"gorm.io/driver/postgres"
@@ -12,7 +15,9 @@ var DB *gorm.DB
 
 func InitDb() {
 	var dialector gorm.Dialector
-	godotenv.Load()
+	if err := godotenv.Load(); err != nil && !os.IsNotExist(err) {
+		log.Fatalf("Failed to load .env file: %v", err)
+	}
 	cfg := config.GetConfig()
 	if cfg.TestMode {
 		dialector = sqlite.Open(cfg.DatabaseConfig.DBName)

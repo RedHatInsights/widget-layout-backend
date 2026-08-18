@@ -55,7 +55,9 @@ func loadSpec() (*openapi3.T, error) {
 }
 
 func init() {
-	godotenv.Load()
+	if err := godotenv.Load(); err != nil && !os.IsNotExist(err) {
+		logrus.WithError(err).Fatal("Failed to load .env file")
+	}
 	database.InitDb()
 	fmt.Println("Loading environment variables from .env file")
 }
@@ -124,7 +126,7 @@ func SpecServer(r chi.Router, apiPrefix string, root http.FileSystem) {
 	}
 
 	if apiPrefix != "/" && apiPrefix[len(apiPrefix)-1] != '/' {
-		r.Get(apiPrefix, http.RedirectHandler(apiPrefix+"/", 301).ServeHTTP)
+		r.Get(apiPrefix, http.RedirectHandler(apiPrefix+"/", http.StatusMovedPermanently).ServeHTTP)
 		apiPrefix += "/"
 	}
 	apiPrefix += "*"

@@ -73,6 +73,8 @@ These issues were encountered during the first staging migration. The instructio
 
 7. **`oc cp` and pipe-based transfers silently truncate large files**: The exported SQL file can be ~9.5MB. `oc cp` may fail with `unexpected EOF`, and the fallback `oc exec cat > file` silently truncates the output with no error (e.g., 1362 of 1903 rows transferred). Use base64 encoding for reliable transfers. The migration script now writes a `.meta` file with the expected INSERT count so `preflight-import` can detect truncation automatically.
 
+8. **Target DB column is `is_default`, not `default`**: The widget-layout-backend GORM model uses `gorm:"column:is_default"` for the `Default` field. The `cmd/database/migrate.go` script renames `default` → `is_default` on startup. The migration script must use `is_default` in all target-side SQL (INSERT statements, preflight checks). The API JSON field remains `default` — GORM handles the mapping.
+
 ---
 
 ## 3. Schema Translation
@@ -84,7 +86,7 @@ The two databases use different schemas for the same conceptual table. The migra
 | `id` (uint, PK) | `id` (uint, PK) | Auto-generated in target (not copied) |
 | `user_identity_id` (uint, FK) | `user_id` (string) | JOIN `user_identities` table to resolve `account_id` |
 | _(does not exist)_ | `dashboard_name` (string) | Copied from `display_name` |
-| `default` (bool) | `default` (bool) | Direct copy |
+| `default` (bool) | `is_default` (bool) | Direct copy (column renamed by GORM migration) |
 | `name` (string, embedded) | `name` (string, embedded) | Translated via NAME_MAP (e.g., `landingPage` → `landing-landingPage`) |
 | `display_name` (string, embedded) | `display_name` (string, embedded) | Direct copy |
 | `sm` (JSON) | `sm` (JSON) | Widget item `"i"` fields transformed via WIDGET_ID_MAP (e.g., `rhel#rhel` → `landing-./RhelWidget`) |
