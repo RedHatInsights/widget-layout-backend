@@ -147,9 +147,10 @@ make dev-mcp
 
 ### Environment Variables
 
-- `PORT` - Server port (default: 8001)
+- `PORT` - Server port (default: 8001; Clowder private web port is 10000)
+- `METRICS_PORT` - Prometheus scrape port (default: 9000). Clowder's ServiceMonitor targets the container port named `metrics`, not the app port.
 - `WIDGET_LAYOUT_API_URL` - URL of the main widget-layout API (default: http://localhost:8000)
-- `LOG_LEVEL` - Logging level: trace, debug, info, warn, error, fatal (default: info)
+- `LOG_LEVEL` - Logging level: trace, debug, info, warn, error, fatal (case-insensitive; default/fallback: info)
 - `NODE_ENV` - Node environment: development, production, test (default: development)
 
 ### Running Tests
@@ -273,7 +274,7 @@ Returns readiness status (useful for Kubernetes readiness probes).
 
 **GET** `/metrics`
 
-Returns Prometheus metrics in text format.
+Returns Prometheus metrics in text format. Served on the app port (local/dev) **and** on `METRICS_PORT` (default 9000) so Clowder's generated ServiceMonitor can scrape it.
 
 ## Metrics
 

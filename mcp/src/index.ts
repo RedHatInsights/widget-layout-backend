@@ -74,8 +74,9 @@ app.get('/ready', (_req: Request, res: Response) => {
   });
 });
 
-// Prometheus metrics endpoint
-app.get('/metrics', async (_req: Request, res: Response) => {
+// Prometheus metrics. Clowder's ServiceMonitor scrapes the container port
+// named "metrics" (env metrics.port, 9000) — not the private app port.
+async function metricsHandler(_req: Request, res: Response): Promise<void> {
   try {
     const metrics = await getMetrics();
     res.set('Content-Type', 'text/plain');
@@ -84,7 +85,9 @@ app.get('/metrics', async (_req: Request, res: Response) => {
     logger.error({ error }, 'Failed to get metrics');
     res.status(500).json({ error: 'Failed to get metrics' });
   }
-});
+}
+
+app.get('/metrics', metricsHandler);
 
 // MCP endpoint
 app.post('/_private/mcp', async (req: Request, res: Response): Promise<void> => {
@@ -214,6 +217,7 @@ const server = app.listen(config.port, () => {
   logger.info(
     {
       port: config.port,
+      metricsPort: config.metricsPort,
       nodeEnv: config.nodeEnv,
       widgetLayoutApiUrl: config.widgetLayoutApiUrl,
     },
@@ -235,6 +239,21 @@ server.on('error', (err: Error) => {
   process.exit(1);
 });
 
+// Separate metrics listener so Clowder's ServiceMonitor (port "metrics")
+// can scrape. Same pattern as main.go's metrics goroutine.
+const metricsApp = express();
+metricsApp.get('/metrics', metricsHandler);
+const metricsServer = metricsApp.listen(config.metricsPort, () => {
+  logger.info({ port: config.metricsPort }, 'MCP metrics server started');
+});
+metricsServer.on('error', (err: Error) => {
+  logger.error(
+    { error: err, port: config.metricsPort },
+    'Failed to start MCP metrics server'
+  );
+  process.exit(1);
+});
+
 // Graceful shutdown
 const gracefulShutdown = (signal: string) => {
   logger.info({ signal }, 'Received shutdown signal');
@@ -246,9 +265,11 @@ const gracefulShutdown = (signal: string) => {
   }, 10000);
 
   server.close(() => {
-    clearTimeout(forceTimeout);
-    logger.info('Server closed');
-    process.exit(0);
+    metricsServer.close(() => {
+      clearTimeout(forceTimeout);
+      logger.info('Server closed');
+      process.exit(0);
+    });
   });
 };
 

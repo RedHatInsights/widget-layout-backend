@@ -24,7 +24,7 @@ objects:
           failureThreshold: 3
           httpGet:
             path: /healthz
-            port: 10000
+            port: ${{PRIVATE_PORT}}
             scheme: HTTP
           initialDelaySeconds: 15
           periodSeconds: 10
@@ -34,7 +34,7 @@ objects:
           failureThreshold: 3
           httpGet:
             path: /ready
-            port: 10000
+            port: ${{PRIVATE_PORT}}
             scheme: HTTP
           initialDelaySeconds: 10
           periodSeconds: 5
@@ -42,9 +42,11 @@ objects:
           timeoutSeconds: 5
         env:
         - name: PORT
-          value: "10000"
+          value: "${PRIVATE_PORT}"
+        - name: METRICS_PORT
+          value: "${METRICS_PORT}"
         - name: WIDGET_LAYOUT_API_URL
-          value: "http://widget-layout-backend-api:8000"
+          value: "${WIDGET_LAYOUT_API_URL}"
         - name: LOG_LEVEL
           value: ${LOG_LEVEL}
         - name: NODE_ENV
@@ -58,20 +60,28 @@ objects:
             memory: ${MEMORY_REQUEST_MCP}
 
 parameters:
-- description: ClowdEnv Name
+- description: ClowdEnv name (ephemeral, stage, prod). No default so a missing saas value fails template processing instead of pointing at a non-existent ClowdEnvironment.
   name: ENV_NAME
-  value: "widget-layout-backend"
   required: true
-- name: MIN_REPLICAS
+- description: Replica count. Default 1 is for stage/ephemeral; raise this (and add a PDB) before promoting to prod.
+  name: MIN_REPLICAS
   value: '1'
-- description: Image name
+- description: Image name (release path published by RPA widget-layout-backend-mcp; not the Konflux user-workloads build repo)
   name: IMAGE
   value: quay.io/redhat-services-prod/hcc-platex-services-tenant/widget-layout-backend/widget-layout-backend-mcp
-- description: Image tag
+- description: Image tag. Required with no default so a saas target that omits it fails instead of deploying latest. App-SRE injects this from the images wait list.
   name: IMAGE_TAG
-  value: latest
   required: true
-- description: The log level for the MCP sidecar
+- description: Private web port (Clowder web.privatePort). Used for PORT and both probes so they stay in sync.
+  name: PRIVATE_PORT
+  value: "10000"
+- description: Prometheus scrape port. Must match Clowder env metrics.port so the generated ServiceMonitor (port named metrics) can scrape /metrics.
+  name: METRICS_PORT
+  value: "9000"
+- description: URL of the widget-layout-backend API service. Override per-target if MCP is not deployed in the same namespace as the API.
+  name: WIDGET_LAYOUT_API_URL
+  value: "http://widget-layout-backend-api:8000"
+- description: Log level for the MCP sidecar. Allowed (case-insensitive) — trace, debug, info, warn, error, fatal. Unrecognised values fall back to info (logrus-style Debug is accepted as debug).
   name: LOG_LEVEL
   value: info
 - description: Cpu limit of MCP sidecar
