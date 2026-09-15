@@ -1,0 +1,98 @@
+---
+apiVersion: v1
+kind: Template
+metadata:
+  name: widget-layout-backend-mcp
+objects:
+- apiVersion: cloud.redhat.com/v1alpha1
+  kind: ClowdApp
+  metadata:
+    name: widget-layout-backend-mcp
+  spec:
+    envName: ${ENV_NAME}
+    optionalDependencies:
+    - widget-layout-backend
+    deployments:
+    - name: app
+      minReplicas: ${{MIN_REPLICAS}}
+      webServices:
+        private:
+          enabled: true
+      podSpec:
+        image: ${IMAGE}:${IMAGE_TAG}
+        livenessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /healthz
+            port: ${{PRIVATE_PORT}}
+            scheme: HTTP
+          initialDelaySeconds: 15
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 5
+        readinessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /ready
+            port: ${{PRIVATE_PORT}}
+            scheme: HTTP
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          successThreshold: 1
+          timeoutSeconds: 5
+        env:
+        - name: PORT
+          value: "${PRIVATE_PORT}"
+        - name: METRICS_PORT
+          value: "${METRICS_PORT}"
+        - name: WIDGET_LAYOUT_API_URL
+          value: "${WIDGET_LAYOUT_API_URL}"
+        - name: LOG_LEVEL
+          value: ${LOG_LEVEL}
+        - name: NODE_ENV
+          value: "production"
+        resources:
+          limits:
+            cpu: ${CPU_LIMIT_MCP}
+            memory: ${MEMORY_LIMIT_MCP}
+          requests:
+            cpu: ${CPU_REQUEST_MCP}
+            memory: ${MEMORY_REQUEST_MCP}
+
+parameters:
+- description: ClowdEnv name (ephemeral, stage, prod). No default so a missing saas value fails template processing instead of pointing at a non-existent ClowdEnvironment.
+  name: ENV_NAME
+  required: true
+- description: Replica count. Default 1 is for stage/ephemeral; raise this (and add a PDB) before promoting to prod.
+  name: MIN_REPLICAS
+  value: '1'
+- description: Image name (release path published by RPA widget-layout-backend-mcp; not the Konflux user-workloads build repo)
+  name: IMAGE
+  value: quay.io/redhat-services-prod/hcc-platex-services-tenant/widget-layout-backend/widget-layout-backend-mcp
+- description: Image tag. Required with no default so a saas target that omits it fails instead of deploying latest. App-SRE injects this from the images wait list.
+  name: IMAGE_TAG
+  required: true
+- description: Private web port (Clowder web.privatePort). Used for PORT and both probes so they stay in sync.
+  name: PRIVATE_PORT
+  value: "10000"
+- description: Prometheus scrape port. Must match Clowder env metrics.port so the generated ServiceMonitor (port named metrics) can scrape /metrics.
+  name: METRICS_PORT
+  value: "9000"
+- description: URL of the widget-layout-backend API service. Override per-target if MCP is not deployed in the same namespace as the API.
+  name: WIDGET_LAYOUT_API_URL
+  value: "http://widget-layout-backend-api:8000"
+- description: Log level for the MCP sidecar. Allowed (case-insensitive) — trace, debug, info, warn, error, fatal. Unrecognised values fall back to info (logrus-style Debug is accepted as debug).
+  name: LOG_LEVEL
+  value: info
+- description: Cpu limit of MCP sidecar
+  name: CPU_LIMIT_MCP
+  value: 250m
+- description: Memory limit of MCP sidecar
+  name: MEMORY_LIMIT_MCP
+  value: 256Mi
+- description: Cpu requests of MCP sidecar
+  name: CPU_REQUEST_MCP
+  value: 100m
+- description: Memory requests of MCP sidecar
+  name: MEMORY_REQUEST_MCP
+  value: 128Mi
