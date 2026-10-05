@@ -1,8 +1,8 @@
 module github.com/RedHatInsights/widget-layout-backend
 
-go 1.25.0
+go 1.26.5
 
-toolchain go1.25.7
+toolchain go1.26.8
 
 require (
 	github.com/getkin/kin-openapi v0.144.0
