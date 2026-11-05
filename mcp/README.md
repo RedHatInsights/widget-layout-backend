@@ -6,6 +6,8 @@ TypeScript-based Model Context Protocol (MCP) sidecar container that enables AI 
 
 This sidecar container runs alongside the main `widget-layout-backend` Go application and provides a standardized MCP interface for AI agents. It acts as a bridge, translating MCP tool calls into HTTP requests to the main application's REST API.
 
+On OpenShift it is its own ClowdApp (`widget-layout-backend-mcp`), private service port **10000**, calling `http://widget-layout-backend-api:8000`. Locally it still listens on 8001.
+
 ## Architecture
 
 ```text
